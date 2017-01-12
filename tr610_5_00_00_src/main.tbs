@@ -1,0 +1,453 @@
+include "global.tbh"
+
+'====================================================================
+public dim stg_init_status as en_stg_status_codes
+public dim tbl_init_status as en_tbl_status_codes
+
+public dim param_on,param_dn as string(32)
+public dim param_tz as byte
+public dim param_ds as byte
+public dim param_mm as byte
+public dim param_dh as byte
+public dim param_ar as byte
+public dim param_ct as word
+public dim param_tf as byte
+public dim param_b1 as byte
+public dim param_b2 as byte
+public dim param_b3 as byte
+public dim param_b4 as byte
+public dim param_ab as byte
+public dim param_il as byte
+public dim param_is as byte
+
+public dim index_page_socknum as byte
+public dim init_flag as byte
+public dim device_tbl_result as en_tbl_status_codes
+public dim sync_retry as byte
+public dim sync_success as no_yes
+public dim on_kp_event_dest as on_kp_event_destinations
+public dim on_sys_timer_event_dest as on_sys_timer_event_destinations
+public dim on_reader_event_dest as on_reader_event_destinations
+public dim current_event as event_type
+public dim html_reboot_flag as no_yes
+public dim sys_reboot_flag as no_yes
+public dim dhcp_flag as byte
+public dim SOCK_HTTP as byte
+public dim SOCK_SNTP as byte
+public dim relay_counter1 as byte
+public dim relay_counter2 as byte
+public dim force_refresh_screen as no_yes
+public dim dhcp_no_link_timer as byte
+public dim auto_button_time(20) as word
+public dim auto_button_action(20) as byte
+public dim auto_button_item as byte
+public dim auto_button_timer as byte
+public dim reader_blocked as no_yes
+public dim auto_event_timer as byte
+
+dim button_timer as byte
+dim id_buffer as string(ID_LEN*2)
+dim auto_sync_flag as no_yes
+
+declare sub check_stg_tbl()
+declare sub check_master_card()
+declare sub setup_network
+declare sub auto_sync()
+declare sub relay_timer_proc()
+declare sub print_basic_info()
+declare sub main_mode()
+declare sub setup_mode()
+
+'------------------------------------------------------------------------------
+sub on_sys_init()
+	dim s as string(16)
+
+	boot()
+	check_stg_tbl()
+	check_master_card()
+	setup_network()
+	if param_tf=1 then device_operation("K")
+	print_basic_info()
+	main_mode()
+	setup_mode()
+	sys.reboot
+end sub
+
+'------------------------------------------------------------------------------
+sub on_sys_timer()
+	dim b1 as byte
+	
+	if param_dh=1 then 
+		if net.linkstate=PL_NET_LINKSTAT_NOLINK then
+			if dhcp_flag=1 and dhcp_no_link_timer> 0 then 
+				dhcp_no_link_timer=dhcp_no_link_timer-1
+				if dhcp_no_link_timer=0 then
+					callback_dhcp_failure(PL_SOCK_INTERFACE_NET,DHCP_STATUS_FAILURE)
+				end if
+			end if
+		else
+			dhcp_proc_timer()
+		end if
+	end if
+	
+	if param_ar=1 then agg_proc_timer()
+	
+	execute_auto_button_action()
+	
+	if button.pressed = 1 then
+		button_timer = button_timer+1
+		if button_timer>6 then pat.play("R-G~*",PL_PAT_CANINT)
+	end if
+	select case on_sys_timer_event_dest
+	
+	case ON_SYS_TIMER_EVENT_DEST_CLOCK:	
+		ui_clock_timer_proc()
+		device_login_timer_proc()
+		relay_timer_proc()
+		if param_tf=1 then auto_sync()
+		if login_mode=CMD_MODE_NONE and param_ar=1 then
+			agg_start(PL_SOCK_INTERFACE_NET,param_on,param_dn,stg_get("PW",0),stg_get("DI",0),stg_get("DP",0),param_ct,yes)
+		end if
+		if force_refresh_screen=YES then
+			print_bar = YES	
+			ui_clock_force_print = YES
+			lcd_clear(0,0,lcd.width,lcd.height)
+			print_clock_button("",yes,yes)
+			device_login_event(login_mode)
+			force_refresh_screen=NO
+			beep.divider = 20000
+			beep.play("B-",PL_BEEP_CANINT)
+			
+			if current_event=EVENT_IN then 
+				if param_b1=0 then 
+					current_event=EVENT_OUT
+					b1=keycodeF2
+				else
+					b1=keycodeF1
+				end if
+			end if
+			if current_event=EVENT_OUT then 
+				if param_b2=0 then 
+					current_event=EVENT_TEMPIN
+					b1=keycodeF3
+				else
+					b1=keycodeF2
+				end if
+			end if
+			if current_event=EVENT_TEMPIN then 
+				if param_b3=0 then 
+					current_event=EVENT_TEMPOUT
+					b1=keycodeF4
+				else
+					b1=keycodeF3
+				end if
+			end if
+			if current_event=EVENT_TEMPOUT then 
+				if param_b4=0 then 
+					current_event=EVENT_IN
+					b1=keycodeF1
+				else
+					b1=keycodeF4
+				end if
+			end if
+			ui_clock_key_proc(PL_KP_EVENT_PRESSED,b1)
+	
+		end if
+	end select
+	id_buffer = ""
+	if sys_reboot_flag=YES then device_operation("E")
+end sub
+
+'------------------------------------------------------------------------------
+sub on_sock_data_arrival()
+	dhcp_proc_data()
+	agg_proc_data()	
+	net_cmd_proc(sock.getdata(255),CMD_MODE_UDP,"U"+sock.remoteip,sock.bcast,error_mode)
+
+end sub
+
+'------------------------------------------------------------------------------
+sub on_sock_event(newstate as pl_sock_state, newstatesimple as pl_sock_state_simple)
+	agg_proc_sock_event(newstate,newstatesimple)
+	if sock.num = index_page_socknum and newstate = PL_SST_CL_ACLOSED then 
+		if html_reboot_flag = YES then 
+			sys.reboot
+		else
+			index_page_socknum = 255
+		end if
+	end if	
+end sub
+
+'------------------------------------------------------------------------------
+sub on_sock_data_sent()
+	agg_proc_data_sent()
+	
+end sub
+
+'------------------------------------------------------------------------------
+sub on_ser_data_arrival()
+	dim Pos1,Pos2 as byte
+	dim s as string
+	s = ser.getdata(255)
+	select case ser.num
+	case READER_PORT_NUM,READER_PORT_NUM+1:
+		if reader_blocked=YES then
+			ser.rxclear()
+			exit sub
+		end if
+		id_buffer = id_buffer + s	
+		Pos1 = instr(1,id_buffer,chr(STX),1)	
+		Pos2 = instr(1,id_buffer,chr(CR),1)
+		if Pos2 > 0 and Pos1 > 0 and Pos2 > Pos1 then 
+			id_buffer = mid(id_buffer,pos1+1,pos2-pos1-1)
+			select case on_reader_event_dest
+			case ON_READER_EVENT_DEST_INIT
+				kp.enabled = NO
+				kp.genkpevent = YES
+				kp.enabled = YES
+				beep.divider = 20000
+				beep.play("BBB",PL_BEEP_CANINT)
+				master_set(right(id_buffer,ID_LEN))
+				lcd_clear(0,0,lcd.width,lcd.height)
+				lcd_print_msg(MACARD_SET,0,0,lcd.width,lcd.height,yes)
+				on_kp_event_dest = ON_KP_EVENT_MC_SET
+				
+			case ON_READER_EVENT_DEST_CLOCK
+				device_card_read(id_buffer)
+			end select
+			id_buffer = ""
+		end if
+		if len(id_buffer) > ID_LEN+4 then
+			id_buffer = ""
+		end if
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+sub on_kp(key_event as pl_kp_event_codes, key_code as byte)
+	select case on_kp_event_dest	
+	case ON_KP_EVENT_DEST_CLOCK:
+		if param_ab=1 and key_event=PL_KP_EVENT_PRESSED then
+			select case current_event
+			case EVENT_TEMPOUT:
+				if param_b4<>0 then auto_event_timer=10
+			case EVENT_TEMPIN:
+				if param_b3<>0 then auto_event_timer=10
+			case EVENT_OUT:
+				if param_b2<>0 then auto_event_timer=10
+			case EVENT_IN:
+				if param_b1<>0 then auto_event_timer=10
+			end select
+		end if
+		ui_clock_key_proc(key_event,key_code)
+	case ON_KP_EVENT_MC_SET
+		sys.reboot	
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+sub on_kp_overflow()
+	kp.enabled = NO
+	kp.enabled = YES
+end sub
+
+'------------------------------------------------------------------------------
+sub on_button_pressed()
+	button_timer = 0 
+end sub
+
+'------------------------------------------------------------------------------
+sub on_button_released()
+	if button_timer > 6 then
+		device_operation("M")
+		device_operation("I")
+	end if
+end sub
+
+'--------------------------------------------------------------------------------
+sub check_stg_tbl()
+	dim b as byte
+	
+	if stg_init_status<>EN_STG_STATUS_OK then
+		beep.divider = 20000
+		beep.play("BBBBBB",PL_BEEP_NOINT)
+		b = ui_msg_box(SYS_ERROR_INIT,0,0,lcd.width,lcd.height,PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER,"",yes,0)
+		device_operation("I")
+	end if
+
+	if tbl_init_status<>EN_TBL_STATUS_OK then
+		beep.divider = 20000
+		beep.play("BBBBBB",PL_BEEP_NOINT)
+		lcd_display_button(BMP_NONE,BMP_NONE,BMP_NO_XOFFSET,BMP_YES_XOFFSET,"0000",yes,no)
+		b = ui_msg_box(MSG_HTML_TBL_FORMAT_ERROR,0,0,lcd.width-16,lcd.height,PL_LCD_TEXT_ALIGNMENT_TOP_LEFT,chr(keycodeF3)+chr(keycodeF4),yes,0)		
+		if b = keycodeF4 then 
+			if device_operation("M") <> "A" then
+				lcd_print_msg(SYS_ERROR_FD,0,0,lcd.width,lcd.height,yes)
+				device_pause(2)
+			end if
+			sys.reboot
+		end if
+	end if
+end sub
+
+'--------------------------------------------------------------------------------
+sub check_master_card()
+	if init_flag=0 then exit sub
+	lcd_clear(0,0,lcd.width,lcd.height)
+	on_reader_event_dest=ON_READER_EVENT_DEST_INIT
+	lcd_print_msg(MSCARD_ENROLL_NOTE,0,0,lcd.width,lcd.height,yes)	
+	
+	while init_flag=1
+		doevents
+	wend
+end sub
+
+'--------------------------------------------------------------------------------
+sub setup_network()
+	dim s as string
+	
+	dhcp_flag=0
+	if param_dh=0 then
+		set_net_ip() 'correct way of setting net.ip!
+		declare_ip_set()
+	else
+		stg_sg("IP",0,s,EN_STG_GET)
+		dhcp_start(PL_SOCK_INTERFACE_NET,s,"")
+		dhcp_flag=1
+	end if
+	
+	'wait for dhcp
+	while param_dh=1 and dhcp_flag=1
+		doevents
+	wend	
+end sub
+
+'--------------------------------------------------------------------------------
+sub auto_sync()
+'A timer subroutin. It should be called periodically (put it in on_sys_timer event), it would check if the current time is the time to connect to the time server and syncronize the time.
+	dim wDays,wMinutes as word
+	dim sec as byte
+	dim auto_sync_hr, auto_sync_min as byte
+	dim s as string(5)	
+
+	stg_sg("TC",0,s,EN_STG_GET)
+	auto_sync_hr = val(left(s,2))
+	auto_sync_min = val(right(s,2))
+	rtc.getdata(wDays,wMinutes,sec)
+	td_gmt_to_local(wDays,wMinutes,param_tz,param_ds)
+	
+	if auto_sync_flag = YES then
+		if hours(wMinutes) = auto_sync_hr and minutes(wMinutes) = auto_sync_min then
+			device_sys_busy(yes)
+			kp.enabled = NO
+			reader_master_switch(PL_OFF)
+			s = device_operation("K")
+			device_sys_busy(no)
+			kp.enabled = yes
+			reader_master_switch(PL_ON)
+			auto_sync_flag = NO
+			ui_clock_force_print = YES
+			lcd_clear(24,15,80,37)
+		end if
+	else
+		if hours(wMinutes) <> auto_sync_hr or minutes(wMinutes) <> auto_sync_min then auto_sync_flag = YES	
+	end if	
+end sub
+
+'--------------------------------------------------------------------------------
+sub relay_timer_proc()
+'Descr: Turn on the relay and set it to 2 second timer
+	if relay_counter1 > 0 then
+		io.num = RELAY_IO1
+		if io.state = HIGH then io.state = LOW
+		relay_counter1 = relay_counter1-1
+		if relay_counter1=0 then io.state = HIGH
+	end if
+	if relay_counter2 > 0 then
+		io.num = RELAY_IO2
+		if io.state = HIGH then io.state = LOW
+		relay_counter2 = relay_counter2-1
+		if relay_counter2=0 then io.state = HIGH
+	end if
+end sub
+
+'--------------------------------------------------------------------------------
+sub print_basic_info()
+	dim s as string(100)
+	dim s1,s2,s3 as string(16)
+	dim mac as string(64)
+	
+	if param_dh=0 then
+		s1 = "OFF"
+	else
+		s1=get_x_flags_net()
+		if mid(s1 ,EN_X_FLAGS_IP,1)="I" then
+			s1="OK"
+		else
+			s1="FAIL"
+		end if
+	end if
+	
+	lcd_clear(0,0,lcd.width,lcd.height)
+	romfile.open(LCD_STD_FONT)
+	lcd.setfont(romfile.offset)
+	lcd.textverticalspacing=1
+	lcd.texthorizontalspacing=1
+	lcd.textalignment = PL_LCD_TEXT_ALIGNMENT_TOP_LEFT
+	lcd.printaligned("Push any button to continue...",3,lcd.height-18,lcd.width-3,18)
+	if len(param_on)>12 then 
+		s2=left(param_on,12)+"..."
+	else
+		s2=param_on
+	end if
+	if len(param_dn)>12 then
+		s3=left(param_dn,12)+"..."
+	else
+		s3=param_dn
+	end if
+	
+	mac=dot_decimal_to_dot_hex(net.mac)
+	s="ON:   "+s2+"`DN:   "+s3+"`DHCP: "+s1+ "`IP:   "+net.ip+"`MAC:  " + mac 
+	#if UTF8_CONVERT
+		utf8_to_win1250(s)
+	#endif	
+	ui_msg_box(s,0,0,lcd.width,lcd.height-18,PL_LCD_TEXT_ALIGNMENT_TOP_LEFT,"",no,5)
+end sub
+
+'--------------------------------------------------------------------------------
+sub main_mode()
+	dim login_permission as login_comparison_codes
+	dim b as byte
+clock:
+	beep.divider = 20000
+	beep.play("BBBB-B-B",PL_BEEP_NOINT)
+	ui_clock(UI_CLOCK_X,UI_CLOCK_Y,yes)
+	login_permission=compare_logins(CMD_MODE_TERMINAL,"","")
+	select case login_permission
+	case LC_WILL_ACCEPT_LOWER_IN_PROGRESS:
+		lcd_display_button(BMP_NONE,BMP_NONE,BMP_NO_XOFFSET,BMP_YES_XOFFSET,"0000",yes,no)
+		b=ui_msg_box(TERM_LOWER_PRIORITY_IN_PROC,0,0,lcd.width-16,lcd.height,PL_LCD_TEXT_ALIGNMENT_TOP_LEFT,chr(keycodeF3)+chr(keycodeF4),yes,15)
+		if b=keycodeF4 then
+			if login_mode = CMD_MODE_AGGREGATE then
+				agg_stop()
+			end if
+			login(CMD_MODE_TERMINAL,"","")
+			exit sub
+		else
+			goto clock
+		end if
+	case LC_WILL_ACCEPT:
+		login(CMD_MODE_TERMINAL,"","")
+		exit sub
+	end select		
+end sub
+
+'--------------------------------------------------------------------------------
+sub setup_mode()
+	beep.divider = 20000
+	beep.play("BBBB",PL_BEEP_NOINT)
+	login(CMD_MODE_TERMINAL,"",0)
+	ui_menu(19,15,lcd.width-38,lcd.height-15,"","menu_descr.txt",LCD_VERSPACE,1,LCD_MENU_TOUT)
+	lcd_clear(0,0,lcd.width,lcd.height)
+	logout()
+end sub

@@ -1,0 +1,9 @@
+<? include "global.tbh"
+
+	html_login_verify(no)
+	if login_mode<>CMD_MODE_HTTP or login_data = "" then 
+		sock_setsend("Athentication Failed!")
+	else
+		device_wl_download
+	end if
+?>

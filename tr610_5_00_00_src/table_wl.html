@@ -1,0 +1,131 @@
+<?
+	include "global.tbh"
+	dim flag as ok_ng
+?>
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<script type="text/javascript">
+
+function checkall_clicked()
+{
+<?
+	html_table_print_checkall
+?>
+}
+function FormSubmit()
+{
+var r=confirm("<?sock_setsend(MSG_HTML_DELTE_SELECT)?>");
+if (r==true)
+  {
+	document.getElementById("del").value="yes"
+	document.getElementById("myForm").submit();
+	}
+}
+
+function IndexPage()
+{
+  window.top.location.replace("Index.html")
+}
+
+</script>
+
+<style type="text/css">
+h1,h2,h3
+{
+color: #663144;
+font-family: arial, 'sans serif'; 
+text-align:center;
+}
+
+p,table,li,address
+{
+font-family: arial, 'sans serif'; 
+border-spacing: 1px
+}
+
+p,li,th,td
+{
+font-size: 100%;
+color: #3A161A
+}
+
+th {background-color:#E8ECED }
+
+body
+{
+background-color: #E0D6B8;
+}
+
+a
+{
+float:left;
+text-decoration:none;
+color:#E0D6B8;
+background-color:#663144;
+padding:0.2em 0.6em;
+}
+a:hover {background-color:#76A0B0;}
+li {display:inline;}
+
+</style>
+</HEAD>
+
+<body <?flag = html_login_verify(yes)?>>
+<? 
+	if flag = NG then goto finish
+?>
+<div>
+<br>
+<?
+if log_counter > 0 then html_tables_record_delete("TBL_WL")
+html_tables_record_load("TBL_WL")
+?>
+	<table width='800' align=center border="0" cellspacing="0" cellpadding="0" >
+		<form id="myForm" action="table_wl.html" method="post">
+		<input type='hidden' name='session' id='session' value='<?sock_setsend(login_data)?>'>
+		<input type='hidden' name='del' id='del'>
+		<tr><td width = 80%> <h3> User Table </h3> </td>
+		</tr>
+		<tr>
+		</tr>
+		<tr>
+			<td width = 80%>
+			<table width=100% border = "1">
+			<tr>
+			<?
+			html_table_header_print("TBL_WL")
+			?>
+			</tr>
+			<?
+			device_sys_busy(yes)
+			html_tables_record_print("TBL_WL")
+			device_sys_busy(no)
+			?>
+			</table>		
+			</td>
+		</tr>
+		<tr>
+			<td><table width=100% border="0" cellspacing="1" cellpadding="0">
+			<tr><td width=40% align=left><table width='140'><tr>
+				<td width='140'><a href = '#' onclick='FormSubmit()'>Delete selected</a></td>
+				</tr></table>
+			</td>
+			<td width=60% align=right><table width=270 border="0"><tr>
+				<td width='50'><?html_table_pagelink_print("table_wl.html","top")?></td>
+				<td width='90'><?html_table_pagelink_print("table_wl.html","prev")?></td>
+				<td width='55'><?html_table_pagelink_print("table_wl.html","next")?></td>
+				<td width='75'><?html_table_pagelink_print("table_wl.html","bottom")?></td>
+			</tr></table></td>
+			</tr></table>
+			</td>
+		</tr>
+		</form>
+	</table>
+	<?html_tbl_print_error?>
+</div>
+</BODY>
+<?finish:
+?>
+</html>

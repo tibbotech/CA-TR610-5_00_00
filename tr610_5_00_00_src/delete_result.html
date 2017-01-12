@@ -1,0 +1,36 @@
+<?
+	include "global.tbh"
+	dim flag as ok_ng
+	dim h_string as string
+?>
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<link rel="stylesheet" type="text/css" href="tables.css" />
+</HEAD>
+
+<body <?flag = html_login_verify(yes)?>>
+<? 
+	if flag = NG then goto finish
+	h_string = get_http_argument(sock.httprqstring,"table_name=")
+	html_tables_record_delete(h_string)
+?>
+<div>
+	<table width='600' align=center border="0" cellspacing="0" cellpadding="0" >
+	<? 
+	select case h_string
+	case "TBL_WL":
+		sock_setsend("<tr><td><h3>Whitelist table deleted.</h3></td></tr>")
+	case "CR":
+		sock_setsend("<tr><td><h3>Event log table deleted.</h3></td></tr>")
+	case "AU_BUT":
+		sock_setsend("<tr><td><h3>Button schedule table deleted.</h3></td></tr>")
+	end select
+	?>
+	</table>
+</div>
+<?finish:
+?>
+</body>
+</html>

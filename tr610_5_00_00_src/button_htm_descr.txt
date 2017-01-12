@@ -1,0 +1,8 @@
+Setting	Setting							Setting 
+Name	String							Data
+
+>>B1	Clock in						B,L,0-Disabled;1-Enabled with relay;2-Enabled without relay;	^
+>>B2	Clock out						B,L,0-Disabled;1-Enabled with relay;2-Enabled without relay;	^
+>>B3	Temporary in					B,L,0-Disabled;1-Enabled with relay;2-Enabled without relay;	^
+>>B4	Temporary out					B,L,0-Disabled;1-Enabled with relay;2-Enabled without relay;	^
+>>AB	Scheduled button action			B,L,0-Disabled;1-Enabled;	^

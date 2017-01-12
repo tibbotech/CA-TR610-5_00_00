@@ -1,0 +1,34 @@
+<?include "global.tbh"
+dim flag as ok_ng
+declare getting_postdata as no_yes
+getting_postdata = NO
+?>
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<link rel="stylesheet" type="text/css" href="tables.css" />
+<script type="text/javascript">
+function IndexPage()
+{
+  window.top.location.replace("Index.html")
+}
+</script>
+</HEAD>
+<body <?flag = html_login_verify(yes)?>>
+<?if flag = NG then goto finish?>
+
+<b>Please do not operate the device while uploading files,</b>
+<br>
+<b>the device will reboot after file upload is completed.</b>
+
+<form action="upload.html" method="post" enctype="multipart/form-data">
+<input type="hidden" name="session" value="<?sock_setsend(login_data)?>">
+<input type="hidden" name="upload_mode" value="DL_CSV">
+<input type="file" name='CR'>
+<input type="submit" value="send">
+</form>
+<?finish:?>
+</body>
+</html>
+

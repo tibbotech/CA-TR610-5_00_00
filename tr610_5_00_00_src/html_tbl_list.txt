@@ -1,0 +1,9 @@
+  1				2		
+  TableName		Decription 
+				file
+
+>>CR			html_records.txt
+>>TBL_WL		html_white_list.txt
+>>AU_BUT		html_auto_button.txt
+
+<END>

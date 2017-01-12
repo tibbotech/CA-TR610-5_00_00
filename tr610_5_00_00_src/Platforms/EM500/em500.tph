@@ -1,0 +1,85 @@
+'++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'			PLAIN EM500 -- NO WIRELESS INTERFACE
+'++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#define __notdl
+
+#define PLATFORM_ID 8
+
+'====================================================================
+include "..\EM500-GEN.tph"
+
+'--------------------------------------------------------------------
+#if OBJECT_FD=FD_ENABLED
+	#define __cfgstr "<FD>"
+#endif
+
+'*****************************************************************************************************************
+'	PLATFORM-DEPENDENT PART OF THE SOCK OBJECT FOR PLATFORMS WITHOUT ANY INTERFACE OTHER THAN ETHERNET
+'*****************************************************************************************************************
+
+enum pl_sock_interfaces
+	PL_SOCK_INTERFACE_NULL,		'<b>PLATFORM CONSTANT.</b><br><br>Null interface (no connection possible).
+	PL_SOCK_INTERFACE_NET,		'<b>PLATFORM CONSTANT.</b><br><br>Ethernet interface.
+	PL_SOCK_INTERFACE_PPP=3		'<b>PLATFORM CONSTANT.</b><br><br>PPP interface on a serial port.
+end enum
+
+'--------------------------------------------------------------------
+property sock.availableinterfaces
+	get = syscall(557,"73.TDL"+) as string
+end property
+
+'--------------------------------------------------------------------
+property sock.allowedinterfaces
+'<b>PROPERTY (STRING), DEFAULT VALUE= "NET" (Ethernet interface).</b>
+'<br><br>
+'For the selected socket (selection is made through <font color="maroon"><b>sock.num</b></font>) defines the list of network interfaces on which
+'this socket will accept incoming connections.
+'<br><br>
+'This platform only supports the Ethernet interface ("NET"). Thefore, the only correct value for the property is "NET". Setting the property to
+'an empty string will mean that the socket will not accept any incoming connections. Attempting to set this property to any other value other than
+'"NET" will be ignored and the resulting property value will be "".
+'<br><br>
+'See also:
+'<font color="maroon"><b>sock.targetinterface</b></font>,
+'<font color="maroon"><b>sock.currentinterface</b></font>.
+	get = syscall(532,"73.TDL"+) as string
+	set = syscall(533,"73.TDL"+) (byref interface as string)
+end property
+
+'--------------------------------------------------------------------
+property sock.targetinterface
+'<b>PROPERTY (ENUM, BYTE), DEFAULT VALUE= 1- PL_SOCK_INTERFACE_NET</b>.
+'<br><br>
+'For the selected socket (selection is made through
+'<font color="maroon"><b>sock.num</b></font>)
+'selects the network interface through which an outgoing connection will be established.
+'<br><br>
+'Possible property values for the current platform are:<br>
+'<font color="olive"><b>PL_SOCK_INTERFACE_NULL</b></font>- not an interface, so connection is not possible,<br>
+'<font color="olive"><b>PL_SOCK_INTERFACE_NET</b></font>- Ethernet interface (see <font color="maroon"><b>net </b></font>object).
+	get = syscall(530,"73.TDL"+) as pl_sock_interfaces
+	set = syscall(531,"73.TDL"+) (interface as pl_sock_interfaces)
+end property
+
+'--------------------------------------------------------------------
+property sock.currentinterface
+'<b>R/O PROPERTY (ENUM, BYTE), DEFAULT VALUE= 0- PL_SOCK_INTERFACE_NULL</b>.
+'<br><br>
+'For the selected socket (selection is made through
+'<font color="maroon"><b>sock.num</b></font>)
+'returns the network interface this socket is currently communicating through.
+'<br><br>
+'Possible property values for the current platform are:<br>
+'<font color="olive"><b>PL_SOCK_INTERFACE_NULL</b></font>- the socket hasn't been used yet,<br>
+'<font color="olive"><b>PL_SOCK_INTERFACE_NET</b></font>- Ethernet interface (see <font color="maroon"><b>net </b></font>object).
+'<br><br>
+'The value of this property is only valid when the socket is not idle, i.e.
+'<font color="maroon"><b>sock.statesimple </b></font>
+'is not equal to
+'<font color="olive"><b>0- PL_SSTS_CLOSED</b></font>.
+	get = syscall(534,"73.TDL"+) as pl_sock_interfaces
+end property
+

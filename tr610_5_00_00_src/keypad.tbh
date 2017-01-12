@@ -1,0 +1,25 @@
+
+
+'corresponded keycode returned by the on_kp_event
+const key_code1 = 0
+const key_code2 = 16
+const key_code3 = 32
+const key_code4 = 48
+const key_io1 = 24
+const key_io2 = 25
+const key_io3 = 26
+const key_io4 = 27
+
+const key_return = "28"
+
+declare sub key_led_reset
+declare sub key_led_pressed(key_code as byte)
+declare sub key_led_released(key_code as byte)
+declare sub key_rotate(dir as byte)
+declare sub key_init
+
+declare keycodeF1 as byte
+declare keycodeF2 as byte
+declare keycodeF3 as byte
+declare keycodeF4 as byte
+ 

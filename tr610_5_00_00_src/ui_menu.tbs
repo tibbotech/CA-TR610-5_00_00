@@ -1,0 +1,899 @@
+'*************************************************************************************************************************
+'           MENU
+'	This is a menu libaray, by reading from a TAB delimited description file, a 4 buttons operated menu will show on a LCD
+'	The description file is consisted of following fields
+'	Acc	lvl: Access level for this tem (byte value), counting from 0
+'	Men	lvl: Menu level for this item (byte value), counting from 0
+'	Item type:Type of this item (one character):'N' - normal item; 'F' - folder item
+'	Item String: A string that will appear for this item on the screen
+'	Item Data: A comma-delimited field that contains all necessary information for normal items. This field is not necessary for the folder items.
+'								
+'*************************************************************************************************************************
+
+include "global.tbh"
+declare on_kp_event_dest as on_kp_event_destinations				
+declare on_sys_timer_event_dest as on_sys_timer_event_destinations
+declare on_reader_event_dest as on_reader_event_destinations
+
+'------------------------ internal -----------------------------
+declare sub ui_menu_addr_fill(start_addr as word)
+declare sub ui_menu_display
+declare sub ui_menu_string_parse(start_index as byte)
+declare sub ui_menu_cursor_display
+declare sub menu_path_store(addr as word)
+declare sub ui_menu_out
+declare sub ui_menu_in
+declare sub ui_menu_excute_command
+declare sub ui_back_current_lcd(i as word)
+declare sub ui_menu_scroll(refresh as no_yes)
+declare function ui_menu_call_ib(byref item_data as string(60)) as ui_input_box_results
+declare function ui_menu_call_lb(byref item_data as string(60)) as ui_list_box_results
+
+declare sub ui_menu_key_proc(key_event as pl_kp_event_codes, key_code as byte)
+declare sub ui_menu_timer_proc
+
+public dim ui_menu_desc_file as string(20)		'file name of the menu item description
+
+dim ui_menu_string as string(60)			'string displayed on the LCD
+dim ui_menu_lvl_path as string(MENU_MAX_LVL*2)			'address(in description file) of all previously accessed menu item(folder)  which leads to current folder
+dim ui_menu_index_path as string(MENU_MAX_LVL)			'actual index of all previously accessed menu item(folder) which leads to current folder
+dim ui_menu_display_index_path as string(MENU_MAX_LVL)	'display index of all previously accessed menu item(folder)  which leads to current folder
+dim menu_pos_x, menu_pos_y, menu_width, menu_height as byte
+dim menu_item_index, menu_display_index, menu_start_index as byte 		'3 byte-size variable are used to keep track of the items in this module,
+																		'menu_item_index: the actual index of all the menu items that is accessible to the user(according to access lvl)
+																		'menu_display_index: the actually position of the cursor on the LCD
+																		'menu_start_index: the menu_item_index of the 1st item displayed on LCD	
+dim menu_timeout_ctr, menu_timeout, menu_access_level, menu_current_lvl as byte		
+dim menu_item_count, menu_display_max as byte										
+dim menu_result as ui_menu_results													
+dim menu_addr_string as string(MENU_MAX_ITEM_PER_LVL*2)		'address of all items in current lvl in description file
+dim menu_item_spacing as byte
+dim ui_menu_input_type as menu_input_type	'input type ex: list_box, input_box
+dim menu_item_data as string(60)	'all the other information needed for other purpos such as display item correct in a input_box module 
+dim mb_msg as string(60)
+dim flag_last_lvl as no_yes		'is the current lvl the last lvl
+dim mb_key as byte
+dim mb_key_str as string(20)
+dim ui_menu_cmd as string(50)
+dim ui_menu_ver_spacing as byte
+dim ib_failed as no_yes
+dim cached_ib_str as string(IB_MAX_LEN)
+dim cached_ib_pos as byte
+'=============================================================
+public function ui_menu(
+	x_coord as word,	'x coordination
+	y_coord as word,	'y coordination
+	width as word,		'width of the menu in pixel
+	height as word,		'height of the menu in pixel
+	byref menu_states as string(MENU_MAX_LVL),	'allows user to start up the menu inside of selected sub-folders instead of root.  example: if menu_state = "23" then the menu will started at 2nd folder of menu lvl 1, 3rd folder of menu lvl 2. if menu_state = "" then menu started at root.
+	byref menu_descriptor_file as string(20),		'the descriptor file
+	ver_spacing as byte,		'vertical spacing on LCD between each menu item
+	access_level as byte, 		'access level of the user, only the menu item that is small or equal to access_level will show.
+	timeout as byte				'if no respond from the keypad within the time defined by "timeout", exit the menu and return to the previous screen. If timeout = 0, no time out applies
+	) as ui_menu_results	
+	dim i, b as byte
+	dim backup_on_kp_event_dest as on_kp_event_destinations 'back up the current event destination (ui_menu) when other ui module is called and redirection is 
+	dim backup_on_sys_timer_event_dest as on_sys_timer_event_destinations
+	dim backup_on_reader_event_dest as on_reader_event_destinations
+	dim ib_result as ui_input_box_results
+	dim lb_result as ui_list_box_results
+	dim kp_event as pl_kp_event_codes
+	dim kp_code as byte
+	dim t as word
+	
+	key_led_reset()
+	menu_current_lvl = 0
+	menu_item_count = 0
+	menu_access_level = access_level
+	menu_addr_string = ""
+	ui_menu_lvl_path = ""
+	menu_item_spacing = FONT_HEIGHT + ver_spacing
+	ui_menu_ver_spacing = ver_spacing
+	menu_pos_x = x_coord
+	menu_pos_y = y_coord
+	menu_width = width
+	menu_height = height-FONT_HEIGHT-5
+	menu_display_max = menu_height/menu_item_spacing
+	ui_menu_desc_file = menu_descriptor_file
+	ui_menu_string = ""
+	ui_menu_index_path = ""
+	ui_menu_display_index_path = ""
+	menu_timeout_ctr = timeout
+	menu_timeout = timeout
+	menu_item_index = 0
+	menu_display_index = 0
+	menu_result = MENU_RESULT_TIMEOUT
+	ui_menu_input_type = MENU_IDLE
+	mb_key_str = ""
+	mb_msg = ""
+	ui_menu_cmd = ""
+	flag_last_lvl = NO
+	mb_key = 255
+	ib_failed = NO
+	cached_ib_str = ""
+	cached_ib_pos = 1
+	
+	'back up current kp event, sys timer event, and reader event 
+	backup_on_kp_event_dest=on_kp_event_dest
+	backup_on_sys_timer_event_dest=on_sys_timer_event_dest
+	backup_on_reader_event_dest = on_reader_event_dest
+	
+	'redirect kp event, sys timer event, and reader event to the ui_menu
+	on_kp_event_dest=ON_KP_EVENT_DEST_MENU
+	on_sys_timer_event_dest=ON_SYS_TIMER_EVENT_DEST_MENU
+	on_reader_event_dest = ON_READER_EVENT_DEST_NONE
+	ui_menu_addr_fill(1)
+	menu_path_store(1) 
+	ui_menu_string_parse(0)
+	if menu_states <> "" then
+		for i = 1 to len(menu_states)
+			b = asc(mid(menu_states,i,1))
+			menu_item_index = b
+			if b > menu_display_max then
+				menu_start_index = b
+			end if
+			ui_menu_in
+		next i 
+	end if
+	lcd_clear(0,0,lcd.width,lcd.height)
+	lcd_print_header("Setup Menu")
+
+
+		'-------------------	Print menu on LCD	--------------------
+	lcd_clear(menu_pos_x, menu_pos_y, menu_width, height)
+	lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+	ui_menu_display	 
+	ui_menu_scroll(yes)
+	ui_menu_cursor_display
+	lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+
+	kp.enabled = NO
+	kp.genkpevent = NO
+	kp.enabled = YES
+wait:
+	doevents
+	if kp.overflow = YES then kp.enabled = YES
+	if kp.getkey(kp_event,kp_code)=OK then
+		ui_menu_key_proc(kp_event,kp_code)
+	end if
+
+	if menu_result<>MENU_RESULT_TIMEOUT then
+		ui_menu=menu_result
+		goto key_pressed
+	end if
+	 
+		'-------------------	Input Control	--------------------
+	'call the input module according to ui_menu_input_type 
+	select case ui_menu_input_type
+	case MENU_IDLE:
+		goto end_input
+	case MENU_INPUT_BOX:
+		ib_result = ui_menu_call_ib(menu_item_data)
+		if ib_result <> INPUT_BOX_RESULT_FAIL then
+			ib_failed = NO
+			ui_menu_out
+		 	ui_menu_input_type = MENU_IDLE 
+			lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+			lcd_print_header("Setup Menu")
+			lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+		else
+			ib_failed = YES
+		end if
+		
+	case MENU_LIST_BOX:
+		lb_result = ui_menu_call_lb(menu_item_data)
+		ui_menu_out
+		ui_menu_input_type = MENU_IDLE
+		lcd_clear(menu_pos_x,menu_pos_y+menu_height+1,menu_width,FONT_HEIGHT+2)
+		lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+		lcd_print_header("Setup Menu")
+		lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+	case MENU_MSG_BOX:
+		mb_key = ui_msg_box(mb_msg,menu_pos_x+5,menu_pos_y+5,menu_width-10,menu_height,PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER,mb_key_str,yes,10)
+		if mb_msg = EXIT_MENU and mb_key = keycodeF4 then 
+			menu_result = MENU_RESULT_OK
+	
+		end if
+		lcd_clear(menu_pos_x,menu_pos_y+menu_height,menu_width,lcd.height-menu_pos_y-menu_height)
+		lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+		if ib_failed = YES then
+			ui_menu_input_type = MENU_INPUT_BOX
+			goto end_input
+		end if
+		ui_menu_input_type = MENU_IDLE 
+		mb_msg = ""
+		mb_key_str = ""
+		ui_menu_out
+		lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+
+		if ui_menu_cmd <> "" and mb_key = keycodeF3 then
+			ui_back_current_lcd(0)
+			ui_menu_excute_command
+			lcd_clear(menu_pos_x,menu_pos_y+menu_height,menu_width,lcd.height-menu_pos_y-menu_height)
+			lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+			ui_menu_out
+		end if
+		ui_menu_cmd = ""
+	case MENU_TBL_BOX:
+		ui_tbl_box(menu_pos_x, menu_pos_y, menu_width,menu_height,menu_item_data)
+		
+		ui_menu_out
+		ui_menu_input_type = MENU_IDLE 
+		lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+		lcd_print_header("Setup Menu")
+		lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+		lcd_clear(19,lcd.height-9,lcd.width-40,9)
+	case else
+		mb_key = ui_msg_box(INVALID_INPUT,menu_pos_x+5,menu_pos_y+5,menu_width-10,menu_height,PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER,mb_key_str,yes,0)
+		mb_msg = ""
+		mb_key_str = ""
+		ui_menu_out
+		ui_menu_input_type = MENU_IDLE 
+	end select
+end_input:
+	if t<> sys.timercount then
+		t = sys.timercount
+		ui_menu_timer_proc
+	end if
+	if timeout=0 then
+		goto wait
+	else
+		if menu_timeout_ctr=0 then
+			ui_menu=MENU_RESULT_TIMEOUT
+key_pressed:		
+			if menu_result = MENU_RESULT_OK then
+			end if
+			on_kp_event_dest=backup_on_kp_event_dest
+			on_sys_timer_event_dest=backup_on_sys_timer_event_dest
+			on_reader_event_dest = backup_on_reader_event_dest
+			kp.enabled = NO
+			kp.genkpevent = YES
+			kp.enabled = YES
+			exit function
+		end if
+		goto wait
+	end if	
+end function
+
+
+
+'=============================================================
+sub menu_addr_store(addr as word)
+'Backup the address of all items in current lvl in description file
+	dim msb, lsb as byte
+	msb = addr/256
+	lsb = addr - msb*256
+	menu_addr_string = menu_addr_string + chr(msb) + chr(lsb)
+end sub
+
+'=============================================================
+sub menu_path_store(addr as word)
+'backup the address(in description file) of all previously accessed menu item(folder)  which leads to current folder
+	dim msb, lsb as byte
+	msb = addr/256
+	lsb = addr - msb*256
+	ui_menu_lvl_path = ui_menu_lvl_path + chr(msb) + chr(lsb)
+end sub
+
+'=============================================================
+function menu_covert_addr(s_addr as string(2)) as word
+'convert a 2-bytes string to a word value
+	dim msb, lsb as byte
+	msb = asc(left(s_addr,1))
+	lsb = asc(right(s_addr,1))
+	menu_covert_addr = msb*256+lsb
+end function
+
+'=============================================================
+sub ui_menu_addr_fill(start_addr as word)
+'Filled up the menu_addr_string (by calling menu_addr_store(s_addr) subroutin) according to the current menu_lvl, and access_lvl
+	dim s as string(24)
+	dim i as word
+	dim access_lvl, menu_lvl, item_index as byte
+	dim addr as word
+	menu_addr_string = ""
+	menu_item_index = 0
+	menu_item_count = 0
+	romfile.open(ui_menu_desc_file)				'this file is a setting descriptor table
+	romfile.pointer = start_addr
+	i=romfile.find(romfile.pointer,">>",1)
+	
+	while i<>0
+		romfile.pointer=i+3
+		addr = i
+		'extract access_lvl
+		do
+			i=romfile.find(romfile.pointer,chr(TAB),1) 
+			if i=0 then exit sub
+			s=romfile.getdata(i-romfile.pointer) 
+			romfile.pointer=i+1
+		loop while s="" 		
+		access_lvl = val(s)
+		
+		'extract menu_lvl
+		do
+			i=romfile.find(romfile.pointer,chr(TAB),1) 
+			if i=0 then exit sub
+			s=romfile.getdata(i-romfile.pointer)
+			romfile.pointer=i+1
+		loop while s="" 		
+		menu_lvl = val(s)
+
+		if menu_lvl = menu_current_lvl and not(access_lvl > menu_access_level) then
+			menu_addr_store(addr)
+			menu_item_count = menu_item_count + 1
+		end if	
+		if menu_current_lvl <> 0 and menu_lvl < menu_current_lvl then exit while
+		i=romfile.find(romfile.pointer,">>",1)	
+	wend
+end sub 
+
+'=============================================================
+sub ui_menu_string_parse(start_index as byte)
+'read address of the menu item from menu_addr_string(item stack), and parse them into real menu item, accessing the item information from the menu description file, using the address.
+	dim s as string(24)
+	dim i as word
+	dim menu_start_index as byte
+	dim item_type as string(1)
+	dim item_name as string(20)
+	dim display_count, index as byte
+	display_count = 0
+	ui_menu_string = ""
+	romfile.open(ui_menu_desc_file)		'this file is a setting descriptor table
+	index = start_index
+	i = menu_covert_addr(mid(menu_addr_string,index*2+1,2))
+	while i<>0
+		romfile.pointer=i+3
+	
+		'extract item_type
+		do
+			i=romfile.find(romfile.pointer,chr(TAB),3) 
+			if i=0 then exit sub
+			s=romfile.getdata(i-romfile.pointer)
+			romfile.pointer=i+1
+		loop while s="" 		
+		item_type = right(s,1)
+		
+		'extract item_name
+		do
+			i=romfile.find(romfile.pointer,chr(TAB),1) 
+			if i=0 then exit sub
+			s=romfile.getdata(i-romfile.pointer)
+			romfile.pointer=i+1
+		loop while s=""		
+		item_name = s 
+		
+		if item_type = "F" then item_name = item_name + "..."
+		ui_menu_string = ui_menu_string + item_name + "`"
+		index = index + 1
+		i=menu_covert_addr(mid(menu_addr_string,index*2+1,2))	
+		display_count = display_count + 1
+		if display_count = menu_display_max then exit while
+	wend
+	ui_menu_string = left(ui_menu_string,len(ui_menu_string)-1)
+	
+end sub
+
+'=============================================================	
+sub ui_menu_cursor_display
+'print the cursor at correct posistion (according to menu_display_index) on the LCD
+	dim x, y as byte
+	romfile.open(SMALL_ICON_FILE)
+	lcd_clear(menu_pos_x, menu_pos_y, 7, menu_height)
+	x = menu_pos_x+ 1
+	y = menu_pos_y+menu_display_index * menu_item_spacing+(FONT_HEIGHT/2)-3
+	ui_menu_scroll(no)
+	
+	lcd.bmp(romfile.offset,x,y,19,0,5,8)
+end sub
+
+'=============================================================
+sub ui_menu_display
+'print the ui_menu_string, which contains the menu items.
+	lcd_clear(menu_pos_x + 7, menu_pos_y, menu_width - 15, menu_height) 
+	lcd.textalignment = PL_LCD_TEXT_ALIGNMENT_TOP_LEFT
+	romfile.open(LCD_STD_FONT)
+	lcd.setfont(romfile.offset)	
+	lcd.textverticalspacing=ui_menu_ver_spacing
+	lcd.texthorizontalspacing = 1
+	lcd.printaligned(ui_menu_string, menu_pos_x + 7, menu_pos_y+1, menu_width - 15, menu_height)
+end sub
+
+'=============================================================
+sub ui_menu_up
+'when cursor on the menu is moving up, if the cursor is already at the first item on current page, LCD refreshes and display the last page, and cursor is pointing the last item on the previous page.
+	dim menu_prev_start as byte
+	menu_prev_start = menu_start_index
+	if menu_item_index > 0 then
+		menu_item_index = menu_item_index - 1
+	else
+		exit sub
+	end if
+	if menu_display_index = 0 and menu_start_index > 0 then
+		menu_start_index = menu_start_index - 1
+		ui_menu_string_parse(menu_start_index)
+		ui_menu_display
+	else
+		menu_display_index = menu_display_index - 1
+	end if
+	if menu_prev_start = menu_start_index then exit sub
+	if menu_start_index = menu_item_count-menu_display_max-1 or menu_start_index = 0 then 
+	ui_menu_scroll(yes)
+	end if
+end sub
+
+
+'=============================================================
+sub ui_menu_down
+'when cursor on the menu is moving down, if the cursor is already at the last item on current page, LCD refreshes and display the next page, and cursor is pointing the first item on the next page.
+	dim menu_prev_start as byte
+	menu_prev_start = menu_start_index	
+	menu_item_index = menu_item_index + 1
+	if menu_item_index > menu_item_count-1 then
+		menu_item_index = menu_item_index - 1
+		exit sub
+	end if
+	menu_display_index = menu_display_index + 1
+	if menu_display_index > menu_display_max-1 then
+		menu_display_index = menu_display_index - 1
+		menu_start_index = menu_item_index - menu_display_index
+		ui_menu_string_parse(menu_start_index)
+		ui_menu_display
+	end if
+	if menu_prev_start = menu_start_index then exit sub
+	if menu_start_index = menu_item_count-menu_display_max or menu_start_index = 1 then 
+		ui_menu_scroll(yes)
+	end if
+end sub
+
+'=============================================================
+function ui_menu_call_lb(byref item_data as string(60)) as ui_list_box_results
+'This function prepares all necessary variables for the List box, and invoke ui_list_box() function.
+	dim x_coord,y_coord as word
+	dim lb_ver_spacing as byte
+	dim listbox_state as string(10)
+	dim timeout as byte
+	dim pos1, pos2 as byte
+	dim listbox_data as string
+	dim setting_name as string(2)
+	dim f, i, w, h as word
+	dim lb_result as ui_list_box_results
+	dim sg_result as en_stg_status_codes
+	dim listbox_width, listbox_height as byte
+	dim s as string
+	pos1 = instr(1,item_data,chr(COMMA),2)
+	pos2 = instr(1,item_data,chr(COMMA),3)
+	setting_name = mid(item_data,pos1+1,pos2-pos1)
+	sg_result = stg_sg(setting_name,0,listbox_state,EN_STG_GET)
+	if sg_result = EN_STG_STATUS_UNKNOWN then 
+		sg_result = device_spec_arg_sg(setting_name,"",listbox_state,"",EN_STG_GET)
+	end if
+
+	romfile.open(ui_menu_desc_file)
+	i = menu_covert_addr(mid(menu_addr_string,menu_item_index*2+1,2))
+	romfile.pointer=i+3
+	
+	'skip first 5 tab
+	do
+		i=romfile.find(romfile.pointer,chr(TAB),5) 
+		if i=0 then exit do
+		s=romfile.getdata(i-romfile.pointer)
+		romfile.pointer=i+1
+	loop while s="" 
+	
+	'extracting listbox_data
+	do
+		i=romfile.find(romfile.pointer,chr(TAB),1) 
+		if i=0 then exit do
+		s=romfile.getdata(i-romfile.pointer)
+		romfile.pointer=i+1
+	loop while s="" 		
+	
+	pos1 = instr(1,s,",",3)
+	listbox_data = mid(s,pos1+1,len(s)-pos1-1)
+	
+	timeout = 20
+	lb_ver_spacing = 1
+	
+	'adjust list box position
+	x_coord = menu_pos_x + 5 
+	y_coord = menu_pos_y + 5
+	w = menu_width - 10
+	h = menu_height+1
+	lb_result = ui_list_box(x_coord, y_coord, lb_ver_spacing, w, h, listbox_data, listbox_state, timeout)
+	
+	if lb_result = LIST_BOX_RESULT_OK then 	
+		if stg_sg(setting_name,0,listbox_state,EN_STG_SET) = EN_STG_STATUS_OK then 
+			device_setting_saved(setting_name,0,listbox_state)
+			device_modtime_sg("",setting_name,DEVICE_SET)
+		end if
+	end if
+	
+	ui_menu_call_lb = lb_result
+end function
+
+'=============================================================
+function ui_menu_call_ib(byref item_data as string(60)) as ui_input_box_results
+'This function prepares all necessary variables for the input box, and invoke ui_list_box() function.
+	dim setting_name as string(2)
+	dim edit_str, mask_str, temp as string(IB_MAX_LEN)
+	dim char_range as byte
+	dim x_coord, y_coord as word
+	dim i,j, pos1, pos2, width, initial_pos, timeout, input_length as byte
+	dim secret_mode, insert_mode as no_yes
+	dim ib_result as ui_input_box_results
+	dim sg_result as en_stg_status_codes
+	dim varify_get as no_yes
+	dim num as byte
+
+	'get setting value from EEPROM
+	pos1 = instr(1,item_data,chr(COMMA),2)
+	pos2 = instr(1,item_data,chr(COMMA),3)
+	setting_name = mid(item_data,pos1+1,pos2-pos1)
+	sg_result = stg_sg(setting_name,0,edit_str,EN_STG_GET)
+	if sg_result = EN_STG_STATUS_OK then
+		num = stg_find(setting_name)-1
+	end if
+	if sg_result = EN_STG_STATUS_UNKNOWN then 
+		sg_result = device_spec_arg_sg(setting_name,"",edit_str,"",EN_STG_GET)
+	end if
+	varify_get = YES
+	goto varify
+show_input_box:
+	i = 1
+	if stg_stype_get(str(num))=`D` then
+		do 
+			pos1 = instr(1,edit_str,chr(46),i)
+			pos2 = instr(pos1+1,edit_str,chr(46),1)
+
+			if pos2 <> 0 then
+				mask_str =mid(edit_str,pos1+1, pos2-pos1-1)
+			else 
+				mask_str = right(edit_str,len(edit_str)-pos1)
+			end if
+
+			for j = len(mask_str) to 2
+				mask_str = "0"+mask_str
+			next j
+			if pos1 = 0 then
+				temp = mask_str+ chr(46) + temp
+			else
+				temp = temp+mask_str+chr(46)
+			end if
+			i = i + 1
+		loop while pos1<>0
+		edit_str = left(temp,len(temp)-1)
+	end if	
+	'device_setting_saved(setting_name,0,edit_str)	
+	
+	pos1 = instr(1,item_data,chr(COMMA),3)
+	pos2 = instr(1,item_data,chr(COMMA),4)
+	mask_str = mid(item_data,pos1+1,pos2-pos1-1)
+	pos1 = instr(1,item_data,chr(COMMA),5)
+	char_range = asc(mid(item_data,pos2+1,pos1-pos2-1))
+
+	pos2 = instr(1,item_data,chr(COMMA),6)
+	temp = mid(item_data,pos1+1,pos2-pos1-1)
+	input_length = val(temp)
+	temp = right(item_data,1)
+	if temp = "N" then secret_mode = NO
+	if temp = "Y" then secret_mode = YES
+	
+	x_coord = menu_pos_x
+	y_coord = menu_pos_y+menu_height+2
+	insert_mode = NO
+	initial_pos = len(edit_str)
+	for i = 1 to len(edit_str)
+		dim c as string(1)
+		c = mid(edit_str,i,1)
+		if c = mid(mask_str,i,1) or c = CHR(&h20) then initial_pos = initial_pos -1
+	next i	
+	timeout = 20
+	width = menu_width
+	if ib_failed = YES then
+		edit_str = cached_ib_str
+		initial_pos = cached_ib_pos
+	end if
+	
+	lcd_clear(menu_pos_x, menu_pos_y, menu_width, menu_height)
+	lcd.horline(menu_pos_x, menu_width+menu_pos_x,menu_pos_y+menu_height)
+	lcd_display_button(BMP_MOVE_XOFFSET,BMP_ROLL_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+	#if UTF8_CONVERT
+		utf8_to_win1250(edit_str)
+	#endif	
+	ib_result = ui_input_box(mask_str,edit_str,char_range,x_coord,y_coord,width,secret_mode,insert_mode,initial_pos,timeout,input_length)
+	#if UTF8_CONVERT			
+		win1250_to_utf8(edit_str)
+	#endif	
+	ui_menu_call_ib = ib_result
+	'special cases for settings
+	varify_get = NO
+	Select case ib_result
+	case INPUT_BOX_RESULT_OK:
+ 		sg_result = stg_sg(setting_name,0,edit_str,EN_STG_SET)
+		if sg_result = EN_STG_STATUS_OK then 
+			device_setting_saved(setting_name,0,edit_str)
+			device_modtime_sg("",setting_name,DEVICE_SET)
+		end if
+		if sg_result = EN_STG_STATUS_UNKNOWN then
+			sg_result = device_spec_arg_sg(setting_name,"",edit_str,"",EN_STG_SET)
+		end if
+	case INPUT_BOX_RESULT_FAIL:
+		ib_failed = YES
+	case else
+		ib_failed = NO
+		ui_menu_call_ib = ib_result
+		exit function
+	end Select
+	cached_ib_str = edit_str 
+	cached_ib_pos = initial_pos
+varify:
+	'varify the stg_sg result
+	select case sg_result
+	case EN_STG_STATUS_OK:
+		if varify_get = YES then goto show_input_box
+	case EN_STG_STATUS_UNKNOWN:	
+		mb_msg = SETTING_UNKNOWN
+	case EN_STG_STATUS_FAILURE:
+		if varify_get = YES then
+			mb_msg = SETTING_GET_FAIL
+		else
+			mb_msg = SETTING_SET_FAIL
+			cached_ib_str = edit_str
+			cached_ib_pos = initial_pos
+		end if
+	case EN_STG_STATUS_INVALID:
+		mb_msg = SETTING_INVALID
+	end select
+	if sg_result <> EN_STG_STATUS_OK then
+		mb_key_str = ""
+		ui_menu_input_type =MENU_MSG_BOX
+		ui_menu_call_ib = INPUT_BOX_RESULT_FAIL
+	end if 
+end function
+
+'=============================================================
+sub ui_menu_out
+'this sub is called when user want to go out one level (folder) in the menu.
+	dim addr as word
+	dim index as byte
+	flag_last_lvl = NO
+	if menu_current_lvl > 0 then 
+		menu_current_lvl = menu_current_lvl - 1
+	else
+		mb_msg = EXIT_MENU
+		ui_back_current_lcd(0)
+
+		lcd_display_button(BMP_NONE,BMP_NONE,BMP_NO_XOFFSET,BMP_YES_XOFFSET,"0000",yes,no)
+		mb_key_str = chr(keycodeF3)+chr(keycodeF4)
+
+		ui_menu_input_type = MENU_MSG_BOX
+		exit sub	
+	end if
+	ui_menu_lvl_path = left(ui_menu_lvl_path, len(ui_menu_lvl_path)-2)
+	addr = menu_covert_addr(right(ui_menu_lvl_path,2))
+	ui_menu_addr_fill(addr)
+	menu_item_index = asc(right(ui_menu_index_path,1))
+	ui_menu_index_path = left(ui_menu_index_path,len(ui_menu_index_path)-1)
+	menu_display_index = asc(right(ui_menu_display_index_path,1))
+	ui_menu_display_index_path = left(ui_menu_display_index_path, len(ui_menu_display_index_path)-1) 
+	menu_start_index = menu_item_index - menu_display_index
+	ui_menu_string_parse(menu_start_index)
+	ui_menu_display
+	ui_menu_cursor_display
+	ui_menu_scroll(yes)
+end sub
+
+'=============================================================
+sub ui_menu_in
+'this sub is called when user want to go out one level (folder) in the menu 
+'or select the menu item that is currently pointed by the cursor.
+	dim i,j as word
+	dim s, item_data as string(60)
+	dim item_type as string(1)
+	dim item_str as string (20)
+	if flag_last_lvl = YES then exit sub
+	i = menu_covert_addr(mid(menu_addr_string,menu_item_index*2+1,2))
+	romfile.open(ui_menu_desc_file)
+	
+	romfile.pointer=i+3
+	'extract item_type
+	do
+		i=romfile.find(romfile.pointer,chr(TAB),3) 
+		if i=0 then exit sub
+		s=romfile.getdata(i-romfile.pointer)
+		romfile.pointer=i+1
+	loop while s="" 		
+	item_type = right(s,1)
+	
+	if item_type = "F" then
+		i=romfile.find(romfile.pointer,">>",1)
+		ui_back_current_lcd(i)			
+		ui_menu_addr_fill(i)
+		ui_menu_string_parse(0)
+		if ui_menu_string = "" then
+			mb_msg = EMPTY_FOLDER
+			mb_key_str = ""
+			ui_menu_input_type = MENU_MSG_BOX
+			flag_last_lvl = YES
+		else 		
+			menu_display_index = 0
+			menu_start_index = 0
+			menu_item_index = 0
+			ui_menu_display
+			ui_menu_cursor_display
+			ui_menu_scroll(yes)
+		end if
+		exit sub
+	end if
+	
+	'extract item_data
+	do
+		i=romfile.find(romfile.pointer,chr(TAB),1) 
+		if i=0 then exit sub			
+		s=romfile.getdata(i-romfile.pointer)
+		romfile.pointer=i+1
+	loop while s=""
+	item_str = s	
+	do	
+		j=romfile.pointer
+		i=romfile.find(romfile.pointer,chr(TAB),1) 
+		if i=0 then exit sub			
+		s=romfile.getdata(i-romfile.pointer)
+		romfile.pointer=i+1
+	loop while s=""		
+	item_data = s 
+	
+	if left(item_data,1) = "S" then goto setting
+	if left(item_data,1) = "C" then goto command
+setting:
+	ui_back_current_lcd(0)
+	i = instr(1,item_data,chr(COMMA),1)
+	if i > 0 then
+		s = mid(item_data,i+1,1)
+	else
+		s = ""
+	end if
+	lcd_print_header(item_str)
+	select case s
+	case "I":
+		menu_item_data = item_data
+		ui_menu_input_type = MENU_INPUT_BOX		
+	case "L":
+		menu_item_data = item_data
+		ui_menu_input_type = MENU_LIST_BOX
+	case "T"
+		menu_item_data = str(j)
+		ui_menu_input_type = MENU_TBL_BOX
+	case else
+		mb_msg = INVALID_INPUT
+		mb_key_str = ""
+		ui_menu_input_type = MENU_MSG_BOX
+	end select
+	flag_last_lvl = YES
+	exit sub
+command:
+
+	i = instr(1,item_data,chr(COMMA),1)
+	if i > 0 then 
+		s = mid(item_data,i+1,1)
+	else
+		s = ""
+	end if
+	
+'For the commands that need to confirm before excuting, add them into select case below
+'proper information need to be provided before calling the msg_box
+
+	ui_menu_cmd = item_data
+	mb_msg = device_command_confirm(s)
+	ui_back_current_lcd(0)
+	lcd_display_button(BMP_NONE,BMP_NONE,BMP_YES_XOFFSET,BMP_NO_XOFFSET,"0000",yes,no)
+	mb_key_str = chr(keycodeF3)+chr(keycodeF4)
+	ui_menu_input_type = MENU_MSG_BOX
+end sub
+
+'=============================================================
+sub ui_menu_scroll(refresh as no_yes)
+'The subroutin takes care of all the necessary changes on the LCD when the cursor is moving.
+	dim scroll_cursor as byte
+	dim x, y, h, h1 as byte	
+	x = menu_pos_x+menu_width-9
+	y = menu_pos_y+1
+	h = menu_height
+	if menu_item_count > 0 then h1 = (h-13)/menu_item_count
+	if h1 < 2 then h1 = 2	
+	if menu_item_count > 0 and menu_item_count > menu_item_index then
+		if menu_item_index = 0 then 
+			scroll_cursor = y
+		else
+			if menu_item_index = menu_item_count-1 then 
+				scroll_cursor=y+h-14-h1
+			else 
+				scroll_cursor = y + (h - 14)*menu_item_index/(menu_item_count-1)-h1/2
+			end if
+		end if
+	else
+		exit sub
+	end if
+	scroll_cursor = scroll_cursor + 6
+	lcd_clear(x+2,y+6,5,h-14)
+
+	lcd.fill(x+2,scroll_cursor,5,h1)
+	if refresh = NO then exit sub
+	romfile.open(SMALL_ICON_FILE)
+	if menu_start_index = 0 then
+		lcd.bmp(romfile.offset,x,y-1,24,1,9,6)
+	else
+		lcd.bmp(romfile.offset,x,y,0,3,9,6)
+	end if
+	if menu_start_index = menu_item_count-menu_display_max or menu_item_count < menu_display_max then
+		lcd.bmp(romfile.offset,x,y+h-7,24,3,9,6)	
+	else
+		lcd.bmp(romfile.offset,x,y+h-7,9,2,9,6)
+	end if
+	lcd.rectangle(x+1,y+5,x+7,y+h-8)
+end sub
+
+'=============================================================
+sub ui_menu_excute_command
+'When a command is selected in the menu, this subroutin is called to do the actually command excusion.  
+'If the command fail to excute, an error message will display on the LCD.
+	dim i,x,y,h,w as byte
+	dim s as string(50)
+	
+	i = instr(1,ui_menu_cmd,chr(COMMA),1)
+	if i > 0 then
+		s = mid(ui_menu_cmd,i+1,1)
+	else
+		s = ""
+	end if
+	x = menu_pos_x+5
+	y = menu_pos_y+5
+	w = menu_width-10
+	h = menu_height
+
+	kp.enabled = NO
+	s = device_operation(s)
+	kp.enabled = YES
+	ui_menu_input_type = MENU_IDLE
+ 	ui_menu_cmd = ""
+end sub
+'=============================================================
+sub ui_menu_key_proc(key_event as pl_kp_event_codes, key_code as byte) 
+'This is the subroutin excutes the proper action when on_kp event is triggered and redirect to the ui_menu module
+	menu_timeout_ctr = menu_timeout
+	device_key_proc(key_event, key_code)
+	select case key_event 
+	
+	case PL_KP_EVENT_PRESSED:
+		select case key_code
+		case keycodeF1:
+			ui_menu_up
+			ui_menu_cursor_display	
+		case keycodeF2:
+			ui_menu_down
+			ui_menu_cursor_display	
+		case keycodeF3:
+			ui_menu_out		
+		case keycodeF4:
+			ui_menu_in				
+		end select
+	end select
+end sub
+
+'=============================================================
+sub ui_back_current_lcd(i as word)
+'backup the necessary data for menu, so it can be restored later.
+	ui_menu_index_path = ui_menu_index_path + chr(menu_item_index)
+	ui_menu_display_index_path = ui_menu_display_index_path + chr(menu_display_index)
+	menu_path_store(i)
+	menu_current_lvl = menu_current_lvl + 1
+end sub
+'=============================================================
+sub ui_menu_timer_proc
+'This is the subroutin counts down to time out when on_sys_timer event is triggered 
+'and redirect to the ui_menu module
+	if menu_timeout_ctr>0 then
+		menu_timeout_ctr=menu_timeout_ctr-1
+	end if
+end sub

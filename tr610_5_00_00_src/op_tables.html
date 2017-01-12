@@ -1,0 +1,129 @@
+<?
+	include "global.tbh"
+	dim flag as ok_ng
+	device_sys_busy(yes)
+?>
+
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<link rel="stylesheet" type="text/css" href="tables.css" />
+<script type="text/javascript">
+function IndexPage()
+  {
+  window.top.location.replace("Index.html")
+  }
+function delete_all(table_name)
+{
+if(table_name == "TBL_WL")
+{var r=confirm("<?sock_setsend(MSG_HTML_DELTE_WL)?>");}
+if(table_name == "CR")
+{var r=confirm("<?sock_setsend(MSG_HTML_DELTE_CR)?>");}
+if (r==true)
+  {
+	document.getElementById("del").value="yes"
+	document.getElementById("del_all").value="yes"
+	document.getElementById("table_name").value=table_name
+	document.getElementById("myForm").submit();
+	
+  }
+}
+function format_confirm()
+{
+var r=confirm("<?sock_setsend(MSG_HTML_CONFIRM_FORMAT)?>");
+if (r==true)
+  {
+  window.top.location.replace("httpcmd.html?opt=format&session=<?sock_setsend(login_data)?>")
+  }
+}
+
+</script>
+</HEAD>
+
+<body <?flag = html_login_verify(yes)?>>
+<? 
+	if flag = NG then goto finish
+?>
+<div>
+	<form id="myForm" action="delete_result.html?" method="get">
+	<input type='hidden' name='session' id='session' value='<?sock_setsend(login_data)?>'>
+	<input type ="hidden" id="del" name="del">
+	<input type ="hidden" id="del_all" name="del_all">
+	<input type ="hidden" id="table_name" name="table_name">
+	<br><br><br>
+	<table width='600' align=center border="0" cellspacing="0" cellpadding="0" >
+		<tr><td>
+		<table width='600' align=center border="1">
+			<tr>
+			<th><b>Table deletion and disk formating</b></th>
+			</tr>
+		</td></tr>
+		
+		<tr><td>
+		<table width='600' align=center border="0">
+			<tr>
+			<td><table width='150' align=center border="0" cellspacing="0" cellpadding="0" >
+				<tr><td><a href = '#' onclick='delete_all("TBL_WL")'> Clear whitelist </a></td></tr>
+			</table></td>
+			<td><table width='150' align=center border="0" cellspacing="0" cellpadding="0" >
+				<tr><td><a href = '#' onclick='delete_all("CR")'> Clear log file </a></td></tr>
+			</table></td>
+			<td><table width='120' align=center border="0" cellspacing="0" cellpadding="0" >
+				<tr><td><a href = '#' onclick='format_confirm()'> Format disk </a></td></tr>
+			</table></td>
+			</tr>
+		</table>
+		</td></tr>
+	</table>
+	<font color ='red'>WARNING: Deleted data cannot be restored.</font>
+	<br><br><br><br><br><br>
+	
+	<table width='600' align=center border="0" cellspacing="0" cellpadding="0" >
+		<tr><td>
+		<table width='600' align=center border="1">
+			<tr>
+			<th><b>Downloading table</b></th>
+			</tr>
+		</td></tr>
+		
+		<tr><td>
+		<table width='600' align=center border="0">
+			<tr>
+			<td><table width='150' align=center border="0" cellspacing="0" cellpadding="0" >
+				<tr><td><a href=wl_download.csv?session=<?sock_setsend(login_data)?>&tbl_name=TBL_WL>Download whitelist</a></td></tr>
+			</table></td>
+			<td><table width='150' align=center border="0" cellspacing="0" cellpadding="0" >
+				<tr><td><a href=logfile.csv?session=<?sock_setsend(login_data)?>&tbl_name=CR>Download log file</a></td></tr>
+			</table></td>
+			</tr>
+		</table>
+		</td></tr>
+
+	</table>
+	
+	<br><br><br><br><br><br>
+	<table width='600' align=center border="0" cellspacing="0" cellpadding="0" >
+		<tr><td>
+		<table width='600' align=center border="1">
+			<tr>
+			<th><b>Uploading table</b></th>
+			</tr>
+		</td></tr>
+		
+		<tr><td>
+		<table width='150' align=center border="0">
+			<tr>
+			<td><a href=wl_upload.html?session=<?sock_setsend(login_data)?>>Upload whitelist</a></td>
+			</tr>
+		</table>
+		</td></tr>
+
+	</table>	
+	</form>
+</div>
+<?finish:
+	device_sys_busy(no)
+?>
+</body>
+</html>

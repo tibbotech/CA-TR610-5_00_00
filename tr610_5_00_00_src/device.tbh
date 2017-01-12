@@ -1,0 +1,37 @@
+
+enum en_device_rdwr
+	DEVICE_SET,
+	DEVICE_GET
+end enum
+
+
+declare sub device_log_download()
+declare sub device_sys_busy(busy as no_yes)
+declare sub device_wl_download()
+declare sub device_tbl_deleted(tbl_name as string)
+declare sub device_replace_chr(byref s as string, a as string, b as string)
+declare function device_spec_arg_sg(byref setting_name as string,index as byte, byref setting_val as string, byref stg_num as byte, rw as en_stg_rdwr) as en_stg_status_codes
+declare function device_setting_check(byref setting_name as string,byref setting_val as string) as ok_ng
+declare sub device_setting_saved(sname as string(STG_MAX_SETTING_NAME_LEN), index as byte, s as string)
+declare sub device_modtime_sg(byref date_time as string(23), byref field_name as string, op as en_device_rdwr)
+declare sub set_net_ip()
+declare sub device_html_proc_cmd()
+declare sub device_html_sync_state()
+declare sub device_html_sync()
+declare sub date_time_str(byref date_str as string(14), byref hr_str as string(2),byref min_str as string(2), byref sec_str as string(2),byref wday_str as string(3), TZ_time as no_yes)
+declare function device_get_mem_usage() as byte
+declare sub device_key_proc(key_event as pl_kp_event_codes, key_code as byte)
+declare sub device_pause(sec as word)
+declare function device_operation(s as string(1)) as string(1)
+declare function device_command_confirm(s as string) as string
+declare sub device_lcd_print_logo()
+declare sub device_card_read(byref sID as string)
+declare sub print_clock_button(byref on_off as string(4),repaint as no_yes,revert as no_yes)
+declare sub load_auto_button_action()
+declare sub execute_auto_button_action()
+declare sub device_mod_display_str(byref tbl_name as string, byref field_name as string, byref field_value as string)
+declare function dot_decimal_to_dot_hex(byref mod_str as string) as string
+#if UTF8_CONVERT
+	declare sub win1250_to_utf8(byref convert_str as string)
+	declare sub utf8_to_win1250(byref convert_str as string)
+#endif

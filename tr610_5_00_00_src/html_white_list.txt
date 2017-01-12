@@ -1,0 +1,7 @@
+HTML		Field		Field			Input	Query	Table	HTML
+ID			Name		String									Data
+
+>>ID		ID			ID				Y		=		Y		S,I,12
+>>NAME		NAME		Name			Y		=		Y		S,I,25
+
+<END>

@@ -1,0 +1,17 @@
+xtx:sdf
+I=$NET;D=Network;T=GROUP
+I=ON;D=Owner name;T=STRING;C=EDIT;MAXLEN=8;F=R*
+I=DN;D=Device name;T=STRING;C=EDIT;MAXLEN=8;F=R*
+I=FE;D=MAC-address;T=STRING;C=ETHERNETCTRL;F=R*
+I=DH;D=DHCP;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled/1;F=R
+I=IP;D=IP-address;T=STRING;C=IPCTRL;S=DH==1?"a":"e";F=R*
+I=PN;D=Port;T=INT;C=EDIT;V=PN>65534||PN==32767?"Port number must be between 0 and 65534 (excluding 32767)":""
+I=DD;D=Registration at dDNS Server;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled/1
+I=LI;E=1;D=dDNS Server IP-address;T=STRING;C=IPCTRL;S=DD==1?"e":"i"
+I=LP;E=1;D=dDNS Server port;T=INT;C=EDIT;V=LP>65535?"Port number must be between 0 and 65535":"";S=DD==1?"e":"i"
+I=AR;D=Auto-registration on Link Server;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled/1
+I=PP;D=PPPoE mode;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled (on connection)/1/2- Enabled (on powerup)/2
+I=PL;E=1;D=PPPoE login name;T=STRING;C=EDIT;MAXLEN=20;F=R*;S=PP!=0?"e":"i"
+I=PD;E=1;D=PPPoE login password;T=STRING;C=EDIT;MAXLEN=20;F=R*;S=PP!=0?"e":"i"
+I=GI;D=Gateway IP-address;T=STRING;C=IPCTRL;S=PP==0?"e":"i"
+I=NM;D=Subnet mask;T=STRING;C=IPCTRL

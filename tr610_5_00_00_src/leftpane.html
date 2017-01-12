@@ -1,0 +1,200 @@
+
+<?
+	include "global.tbh"
+
+?>
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<script type="text/javascript">
+function format_confirm()
+{
+var r=confirm("<?sock_setsend(MSG_HTML_CONFIRM_FORMAT)?>");
+if (r==true)
+  {
+  window.top.location.replace("httpcmd.html?opt=format&session=<?sock_setsend(login_data)?>")
+  }
+}
+
+function reboot_confirm()
+{
+var r=confirm("<?sock_setsend(MSG_HTML_CONFIRM_REBOOT)?>");
+if (r==true)
+  {
+  window.top.location.replace("httpcmd.html?opt=reboot&session=<?sock_setsend(login_data)?>")
+  }
+}
+
+function init_confirm()
+{
+var r=confirm("<?sock_setsend(MSG_HTML_CONFIRM_INITIALIZE)?>");
+if (r==true)
+  {
+  window.top.location.replace("httpcmd.html?opt=init&session=<?sock_setsend(login_data)?>")
+  }
+}
+function logout_confirm()
+{
+var r=confirm("<?sock_setsend(MSG_HTML_CONFIRM_LOG_OFF)?>");
+if (r==true)
+  {
+  window.top.location.replace("httpcmd.html?opt=logout&session=<?sock_setsend(login_data)?>")
+  }
+}
+
+function delete_table(table_name)
+{
+if(table_name == "TBL_WL")
+{var r=confirm("<?sock_setsend(MSG_HTML_DELTE_WL)?>");}
+if(table_name == "CR")
+{var r=confirm("<?sock_setsend(MSG_HTML_DELTE_CR)?>");}
+if(table_name == "AU_BUT")
+{var r=confirm("<?sock_setsend(MSG_HTML_DELTE_AB)?>");}
+if (r==true)
+  {
+	document.getElementById("del").value="yes"
+	document.getElementById("del_all").value="yes"
+	document.getElementById("table_name").value=table_name
+	document.getElementById("delete_form").target = "showframe"
+	document.getElementById("delete_form").submit();
+  }
+}
+
+</script>
+
+<script language="javascript1.2">
+function toggleBullet(elm) {
+ var newDisplay = "none";
+ var e = elm.nextSibling; 
+ while (e != null) {
+  if (e.tagName == "OL" || e.tagName == "ol") {
+   if (e.style.display == "none") newDisplay = "block";
+   break;
+  }
+  e = e.nextSibling;
+ }
+ while (e != null) {
+  if (e.tagName == "OL" || e.tagName == "ol") e.style.display = newDisplay;
+  e = e.nextSibling;
+ }
+}
+
+function collapseAll() {
+  var lists = document.getElementsByTagName('OL');
+  for (var j = 0; j < lists.length; j++) 
+   lists[j].style.display = "none";
+  lists = document.getElementsByTagName('ol');
+  for (var j = 0; j < lists.length; j++) 
+   lists[j].style.display = "none";
+  var e = document.getElementById("root");
+  e.style.display = "block";
+}
+</script>
+
+
+<style type="text/css">
+body
+{
+font-family: arial, 'sans serif';
+background-color:#663144;
+color: #E0D6B8;
+font-size: 100%;
+}
+
+a
+{
+float:left;
+width:10em;
+text-decoration:none;
+color:#E0D6B8;
+background-color:#663144;
+padding:0.2em 0.6em;
+}
+a:hover {background-color:#76A0B0;}
+li {display:block;}
+ol (margin:0;padding:5;}
+</style>
+</HEAD>
+
+<body onload='collapseAll();'>
+
+<form id="delete_form" action="delete_result.html?" method="get">
+<input type='hidden' name='session' id='session' value='<?sock_setsend(login_data)?>'>
+<input type ="hidden" id="del" name="del">
+<input type ="hidden" id="del_all" name="del_all">
+<input type ="hidden" id="table_name" name="table_name">
+</form>
+
+<h3>Giga-TMS TR610</h3>
+<? if login_mode=CMD_MODE_HTTP then ?>
+<table><tr><td height="600px" valign=top>
+
+<ol id="root">
+<li><a href="#" onclick="toggleBullet(this)">Settings</a>
+	<ol>
+		<li><a href = 'general.html?session=<?sock_setsend(login_data)?>' target = showframe> General </a></li>
+		<li><a href = 'network.html?session=<?sock_setsend(login_data)?>' target = showframe> Network </a></li>
+		<li><a href = 'aggregate.html?session=<?sock_setsend(login_data)?>' target = showframe> AggreGate </a></li>
+		<li><a href = 'time.html?session=<?sock_setsend(login_data)?>' target = showframe> Date/Time </a></li>
+	</ol>
+<li><a href="#" onclick="toggleBullet(this)">Button setup</a>
+	<ol>
+		<li><a href = 'button.html?session=<?sock_setsend(login_data)?>' target = showframe> Button settings</a></li>
+		<li><a href = 'input_ab.html?session=<?sock_setsend(login_data)?>' target = showframe> Add button schedule</a></li>
+		<li><a href = 'table_ab.html?session=<?sock_setsend(login_data)?>' target = showframe> Check button schedule</a></li>
+		<li><a href = '#' onclick='delete_table("AU_BUT")'> Clear button schedule</a> </li>
+	</ol>
+<li><a href="#" onclick="toggleBullet(this)">Event Log</a>
+	<ol>
+		<li><a href = 'log.html?session=<?sock_setsend(login_data)?>' target = showframe> Search </a></li>
+		<li><a href = 'logfile.log?session=<?sock_setsend(login_data)?>' target = showframe> Download </a></li>
+		<li><a href = '#' onclick='delete_table("CR")'> Clear </a> </li>
+	</ol>
+<li><a href="#" onclick="toggleBullet(this)">White List</a>
+	<ol>
+		<li><a href = 'white_list.html?session=<?sock_setsend(login_data)?>' target = showframe> Search </a></li>
+		<li><a href = 'input_wl.html?session=<?sock_setsend(login_data)?>' target = showframe> Add users </a></li>
+		<li><a href = 'wl_download.log?session=<?sock_setsend(login_data)?>' target = showframe> Download </a></li>
+		<li><a href = 'wl_upload.html?session=<?sock_setsend(login_data)?>' target = showframe> Upload </a></li>
+		<li><a href = '#' onclick='delete_table("TBL_WL")'> Clear </a> </li>
+	</ol>
+<li><a href="#" onclick="toggleBullet(this)">Device Operations</a>
+	<ol>
+		<li><a href = '#' onclick='reboot_confirm()'> Reboot </a> </li>
+		<li><a href = '#' onclick='init_confirm()'> Initialize settings </a> </li>
+		<li><a href = '#' onclick='format_confirm()'> Format disk </a></li>
+	</ol>
+<li><a href = '#' onclick='logout_confirm()'> Log out </a></li>
+</ol>
+</td></tr>
+<tr><td>
+
+<?
+	dim s1 as string
+	if stg_get("DH",0) = "0" then
+		s1 = "OFF"
+	else
+		s1 = get_x_flags_net
+		if mid(s1 ,EN_X_FLAGS_IP,1) = "I" then
+			s1 = "OK"
+		else
+			s1 = "FAIL"
+		end if
+	end if
+	
+	sock_setsend("<li>Owner Name: "+param_on+"</li>")
+	sock_setsend("<li>Device Name: "+param_dn+"</li>")
+	sock_setsend("<li>DHCP Status: "+s1+"</li>")
+	sock_setsend("<li>IP: "+net.ip+"</li>")
+	s1=dot_decimal_to_dot_hex(net.mac)
+	sock_setsend("<li>MAC: "+s1+"</li>")
+	?>
+<?
+end if
+?>
+
+</td></tr>
+</table>
+</BODY>
+</html>

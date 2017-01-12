@@ -1,0 +1,7 @@
+HTML		Field		Field			Input	Query	Table	HTML
+ID			Name		String									Data
+
+>>TIME		time		Time			Y		=		Y		W,T
+>>ACTION	act			Action			Y		=		Y		B,L,0-Switch C. IN;1-Switch C. OUT;2-Switch T. IN;3-Switch T. OUT;4-C. IN(Dis.);5-C. IN(rly);6-C. IN(no rly);7-C. OUT(Dis.);8-C. OUT(rly);9-C. OUT(no rly);10-T. IN(Dis.);11-T. IN(rly);12-T. IN(no rly);13-T. OUT(Dis.);14-T. OUT(rly);15-T. OUT(no rly);
+
+<END>

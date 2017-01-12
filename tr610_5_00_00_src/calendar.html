@@ -1,0 +1,30 @@
+<?include "global.tbh"?>
+
+<html>
+<head>
+<title>Pick a date</title>
+<link rel="stylesheet" type="text/css" href="calendar.css" />
+<script type="text/javascript" src="calendar.js"></script>
+<script language="JavaScript" type="text/javascript">
+
+function setMaster() {
+var mainForm = opener.document.mainForm;
+var popForm = document.popForm;
+var currEl;
+for (var i=0; i<popForm.length; i++) {
+currEl = popForm[i];
+if (mainForm[currEl.name]) {
+mainForm[currEl.name].value = popForm[currEl.name].value;
+}
+}
+if (opener && !opener.closed) opener.focus();
+self.close();
+}
+
+</script>
+</head>
+<?html_tbl_print_datepicker?>
+</form>
+</div>
+</body>
+</html> 

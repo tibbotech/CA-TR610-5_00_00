@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+
+<HEAD>
+	<base href="<?%BaseDir?>"/>
+</HEAD>
+	
+<BODY>
+
+<script>
+
+var SelectedRow;
+
+function Select(Row)
+{
+	if (SelectedRow)
+		SelectedRow.bgColor = 0xffffff;
+	
+	Row.bgColor = 0xff9080;
+	SelectedRow = Row;
+}
+
+function Delete(Row)
+{	
+	if (!Row)
+		return;
+		
+	if (Row == SelectedRow)
+		SelectedRow = null;
+	
+	external.XText.splice(Row.rowIndex, 1);
+	external.SetModified(true);
+
+	document.getElementById('my_table').deleteRow(Row.rowIndex);	
+}
+
+function Edit(Row)
+{	
+	if (!Row)
+		return;
+
+	var Obj = external.XText[Row.rowIndex];
+	var Result = external.ModalDialog("edit.html", "Edit SDF Type", Obj);
+	if (Result != 1)
+		return;	
+		
+	Row.cells(0).innerHTML = Obj.Name;	
+	Row.cells(1).innerHTML = Obj.Description;	
+	
+	external.SetModified(true);
+}
+
+function Add()
+{	
+	var Obj = new Object;
+
+	Obj.Name = "?";
+	Obj.Description = "?";
+
+	var Result = external.ModalDialog("edit.html", "Add New SDF Type", Obj);
+	if (Result != 1)
+		return;	
+
+	external.XText.push(Obj);
+	external.SetModified(true);
+
+	var Row = document.getElementById("my_table").insertRow();
+	
+	Row.onmousedown = function() { Select(Row); };
+	Row.ondblclick = function() { Edit(Row); };
+	Row.insertCell(0).innerHTML = Obj.Name;
+	Row.insertCell(1).innerHTML = Obj.Description;
+	
+	Select(Row);
+}
+
+</script>
+
+<table border="1" id = "my_table">
+
+<?
+for (i = 0; i < external.XText.length; i++) 
+{ 
+	var Obj = external.XText[i];
+?>
+
+<tr onmousedown = "Select(this)" ondblclick = "Edit(this)">
+
+<td> <?%Obj.Name?> </td>
+<td> <?%Obj.Description?> </td>
+
+</tr>
+
+<?}?>
+
+</table>
+
+<script>
+
+</script>
+
+<br>
+<button onclick = "Add()">Add</button>&nbsp;
+<button onclick = "Edit(SelectedRow)">Edit</button>&nbsp;
+<button onclick = "Delete(SelectedRow)">Delete</button>&nbsp;
+
+</BODY>
+
+</HTML>

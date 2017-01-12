@@ -1,0 +1,14 @@
+I=$GEN;D=General;T=GROUP
+I=ON;D=Owner name;T=STRING;C=EDIT;MAXLEN=16;F=R*
+I=DN;D=Device name;T=STRING;C=EDIT;MAXLEN=16;F=R*
+I=MM;D=Mount;T=INT;C=STATIC;O=0- Wall Mount/0/1- Desktop/1
+I=WL;D=White List;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled/1
+I=$NET;D=Network;T=GROUP
+I=DH;D=DHCP;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled/1;F=R
+I=IP;D=IP-address;T=STRING;C=IPCTRL;S=DH==1?"a":"e";F=R*
+I=GI;D=Gateway IP-address;T=STRING;C=IPCTRL
+I=NM;D=Subnet mask;T=STRING;C=IPCTRL
+I=AR;D=Auto-registration on AggreGate Server;T=INT;C=STATIC;O=0- Disabled/0/1- Enabled/1
+I=CT;D=Connection timeout (min);T=INT;C=EDIT/SPIN/0/1/1/10;O=0- Disabled/0;V=CT>255?"Maximum timeout is 255 minutes":""
+I=DI;E=1;D=Destination IP-address;T=STRING;C=IPCTRL;S=AR!=0?"e":"i"
+I=DP;E=1;D=Destination port;T=INT;C=EDIT;S=AR!=0?"e":"i";F=R*

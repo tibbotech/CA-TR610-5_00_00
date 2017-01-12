@@ -1,0 +1,1612 @@
+include "global.tbh"
+
+const SECTOR_SIZE=256
+const TT_STG_NUM=MAX_HTML_NUM_SETTINGS-2  'TT is time setting, which is stored in RTC, have to be deal differently
+const TD_STG_NUM=MAX_HTML_NUM_SETTINGS-1	'TD is date setting, which is stored in RTC, have to be deal differently
+const ACTIVE_FLAG=chr(val("&hFE"))
+
+
+'--------------------------------------------------
+'for polish utf-8 translate
+#if UTF8_CONVERT
+const bin_uf8_win1250_A5="\xC4\x84"
+const bin_uf8_win1250_C6="\xC4\x86"
+const bin_uf8_win1250_CA="\xC4\x98"
+const bin_uf8_win1250_A3="\xC5\x81"
+const bin_uf8_win1250_D1="\xC5\x83"
+const bin_uf8_win1250_D3="\xC3\x93"
+const bin_uf8_win1250_8C="\xC5\x9A"
+const bin_uf8_win1250_8F="\xC5\xB9"
+const bin_uf8_win1250_AF="\xC5\xBB"
+const bin_uf8_win1250_B9="\xC4\x85"
+const bin_uf8_win1250_E6="\xC4\x87"
+const bin_uf8_win1250_EA="\xC4\x99"
+const bin_uf8_win1250_B3="\xC5\x82"
+const bin_uf8_win1250_F1="\xC5\x84"
+const bin_uf8_win1250_F3="\xC3\xB3"
+const bin_uf8_win1250_9C="\xC5\x9B"
+const bin_uf8_win1250_9F="\xC5\xBA"
+const bin_uf8_win1250_BF="\xC5\xBC"
+#endif
+'--------------------------------------------------
+
+declare function device_settings_initialize() as en_stg_status_codes
+declare function device_add_record(sID as string(ID_LEN)) as en_tbl_status_codes
+declare function clock_set_time(sYear as string(4), sMonth as string(2), sDate as string(2), sHour as string(2), sMin as string(2), sSec as string(2), TZ_time as no_yes) as boolean
+
+'====================================================================
+
+public sub device_login_event(mode as cmd_modes)
+'Descr: display the icon on LCD for different Login method.
+	dim x,y, x_offset as byte
+	if on_sys_timer_event_dest<>ON_SYS_TIMER_EVENT_DEST_CLOCK then exit sub
+	x = 21
+	y = lcd.height - 10		
+	lcd_clear(x,y,14,9)
+	romfile.open(SMALL_ICON_FILE)
+	Select case mode
+	case CMD_MODE_AGGREGATE
+		romfile.open(SMALL_ICON_FILE)
+		lcd.bmp(romfile.offset,21,lcd.height-10,34,0,6,9)	
+	case CMD_MODE_HTTP:
+		x_offset = 42
+		x = 29
+		y = lcd.height - 10
+		lcd.bmp(romfile.offset,x,y,x_offset,0,6,9)
+	case CMD_MODE_NONE:
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+public function device_get_timeout(mode as cmd_modes) as word
+	select case mode
+	case CMD_MODE_HTTP:
+		device_get_timeout=LOGIN_TIMEOUT
+	case CMD_MODE_TERMINAL:
+		device_get_timeout = LCD_MENU_TOUT
+	case CMD_MODE_AGGREGATE:
+		device_get_timeout = 0
+	case CMD_MODE_NONE:
+	end select
+end function
+
+'------------------------------------------------------------------------------
+public sub device_mod_display_str(byref tbl_name as string, byref field_name as string, byref field_value as string)
+	select case tbl_name
+	case "AU_BUT":
+		select case field_name
+		case "time":
+			field_name="TIME"
+			if field_value<>"" then field_value=left(field_value,2)+":"+right(field_value,2)
+		case "TIME":
+			field_name="time"
+			field_value=left(field_value,2)+right(field_value,2)
+		case "act":
+			field_name="ACT"
+			select case field_value
+			case "0":field_value="Swh C. IN"
+			case "1":field_value="Swh C. OUT"
+			case "2":field_value="Swh T. IN"
+			case "3":field_value="Swh T. OUT"
+			case "4":field_value="C. IN(Dis.)"
+			case "5":field_value="C. IN(rly)"
+			case "6":field_value="C. IN(no rly)"
+			case "7":field_value="C. OUT(Dis.)"
+			case "8":field_value="C. OUT(rly)"
+			case "9":field_value="C. OUT(no rly)"
+			case "10":field_value="T. IN(Dis.)"
+			case "11":field_value="T. IN(rly)"
+			case "12":field_value="T. IN(no rly)"
+			case "13":field_value="T. OUT(Dis.)"
+			case "14":field_value="T. OUT(rly)"
+			case "15":field_value="T. OUT(no rly)"
+			end select
+		end select
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_dhcp_ok(renew as no_yes, interface as pl_sock_interfaces, byref ip as string, byref gateway_ip as string, byref netmask as string, lease_time as dword)
+	dhcp_flag=0
+	stg_set("IP",0,ip)
+	stg_set("GI",0,gateway_ip)
+	stg_set("NM",0,netmask)
+	set_net_ip()
+	declare_ip_obtained()
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_dhcp_failure(interface as pl_sock_interfaces,failure_code as en_dhcp_status_codes)
+	dhcp_flag=0
+	set_net_ip()
+	declare_ip_set()
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_dhcp_pre_clear_ip(interface as pl_sock_interfaces)
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_dhcp_pre_buffrq(required_buff_pages as byte)
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_dhcp_buff_released()
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_stg_error(byref stg_name_or_num as string,index as byte,status as en_stg_status_codes)
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_stg_pre_get(byref stg_name_or_num as string,index as byte,byref stg_value as string)
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_stg_post_set(byref stg_name_or_num as string, index as byte,byref stg_value as string)
+	dim s1 as string(8)
+	select case stg_name_or_num
+	case "IF":
+		init_flag=val(stg_value)
+	case "TZ":
+		param_tz=val(stg_value)
+	case "ON":	
+		param_on=stg_value
+	case "DN":
+		param_dn=stg_value
+	case "B1":
+		if param_b1<>val(stg_value) then
+			param_b1=val(stg_value)
+			force_refresh_screen=YES
+		end if
+		goto check_reader_blocked
+	case "B2":
+		if param_b2<>val(stg_value) then
+			param_b2=val(stg_value)
+			force_refresh_screen=YES
+		end if
+		goto check_reader_blocked
+	case "B3":
+		if param_b3<>val(stg_value) then
+			param_b3=val(stg_value)
+			force_refresh_screen=YES
+		end if
+		goto check_reader_blocked
+	case "B4":
+		if param_b4<>val(stg_value) then
+			param_b4=val(stg_value)
+			force_refresh_screen=YES
+		end if
+check_reader_blocked:
+		if param_b1=0 and param_b2=0 and param_b3=0 and param_b4=0 then
+			reader_blocked=YES
+		else
+			reader_blocked=NO
+		end if
+	case "MM":
+		if param_mm<>val(stg_value) then
+			param_mm=val(stg_value)
+			lcd.enabled=NO
+			if param_mm=0 then
+				lcd.rotated = YES
+			else
+				lcd.rotated = NO
+			end if
+			lcd.enabled = YES
+			key_rotate(param_mm)
+			force_refresh_screen=YES
+		end if
+	case "DH":
+		param_dh=val(stg_value)
+	case "AR":
+		param_ar=val(stg_value)
+	case "TF":
+		param_tf=val(stg_value)
+	case "CT":
+		param_ct=val(stg_value)*120
+	case "AB":
+		param_ab=val(stg_value)
+	case "DS":
+		param_ds=val(stg_value)
+	case "IL":
+		param_il=val(stg_value)
+	case "IS":
+		param_is=val(stg_value)		
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_tbl_error(status as en_tbl_status_codes)
+end sub
+
+'------------------------------------------------------------------------------
+function callback_tbl_fail_to_open(byref filename as string, status as pl_fd_status_codes, filenum as byte) as no_yes
+end function
+
+'------------------------------------------------------------------------------
+sub callback_tbl_field_error(byref file_name as string,byref field_name as string,tbl_result as en_tbl_status_codes)
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_pre_buffrq(x as byte)
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_buff_released()
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_error(failure_code as en_agg_status_codes, byref error_item as string)
+	if failure_code=EN_AGG_STATUS_CONNECTION_LOST and login_mode=CMD_MODE_AGGREGATE then
+		logout()
+	end if
+end sub
+
+'------------------------------------------------------------------------------
+function callback_agg_device_specific_operation(byref op as string ,byref context_name as string, byref func_input as string, byref msg as string) as ok_ng
+	dim return_code as string(1)
+	
+	callback_agg_device_specific_operation=OK
+	select case op
+	case "buzz":
+		return_code=device_operation("U")
+		if return_code="A" then goto reply_ok_no_msg
+	case "init":
+		return_code=device_operation("I")
+		if return_code="A" then 
+			sys_reboot_flag=YES
+			goto reply_ok_no_msg
+		end if
+	case "reboot":
+		sys_reboot_flag=YES
+		goto reply_ok_no_msg
+		
+	case "Z":
+		return_code=device_operation("Z")
+		if return_code="A" then goto reply_ok
+	case "J":
+		return_code=device_operation("J")
+		if return_code="A" then goto reply_ok
+	case "B":
+		return_code=device_operation("B")
+		if return_code="A" then goto reply_ok		
+	case "M":
+		return_code=device_operation("M")
+		if return_code="A" then
+			sys_reboot_flag=YES
+			goto reply_ok_no_msg
+		end if
+	case else
+		goto reply_err
+	end select
+
+	select case return_code
+	case "R":
+		goto reply_rejected
+	case "C":
+		goto reply_err
+	case "D":
+		goto reply_denied
+	case "F":
+		goto reply_failed
+	end select
+	
+reply_ok:
+	msg=chr(&h1c)+"R"+chr(&h1e)+chr(&h1c)+"command successful"+chr(&h1d)+chr(&h1d)
+	exit function
+reply_ok_no_msg:
+	msg=""
+	exit function
+reply_rejected:
+	msg=chr(&h1c)+"R"+chr(&h1e)+chr(&h1c)+"command rejected"+chr(&h1d)+chr(&h1d)
+reply_err:
+	msg=chr(&h1c)+"R"+chr(&h1e)+chr(&h1c)+"command error"+chr(&h1d)+chr(&h1d)
+reply_denied:
+	msg=chr(&h1c)+"R"+chr(&h1e)+chr(&h1c)+"command denied"+chr(&h1d)+chr(&h1d)
+reply_failed:
+	msg=chr(&h1c)+"R"+chr(&h1e)+chr(&h1c)+"command failed"+chr(&h1d)+chr(&h1d)
+
+	callback_agg_device_specific_operation=NG
+
+end function
+
+'------------------------------------------------------------------------------
+sub callback_agg_rtc_sg(byref wdaycount as word, byref wmincount as word, byref bsec as byte, byref wmilsec as word, op as en_agg_rdwr)
+	if op=EN_AGG_SET then
+		rtc.setdata(wdaycount,wmincount,bsec)
+	else
+		rtc.getdata(wdaycount,wmincount,bsec)
+		wmilsec=999
+	end if
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_ok()
+
+end sub
+
+'------------------------------------------------------------------------------
+function callback_agg_setting_saved(byref setting_name as string, byref setting_val as string) as en_stg_status_codes
+
+end function
+
+'------------------------------------------------------------------------------
+sub callback_agg_stg_error(byref setting_name as string, error_code as en_stg_status_codes)
+
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_tbl_error(byref table_name as string, error_code as en_tbl_status_codes)
+
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_tbl_fld_mod_sg(byref tbl_name as string, byref fld_name as string, byref fld_val as string, op as en_agg_rdwr)
+	dim day_count,min_count,mseconds as word
+	dim seconds as byte
+
+	if tbl_name="CR" and fld_name="date" and op=EN_AGG_GET then
+		td_from_str(fld_val,day_count,min_count,seconds,mseconds)
+		td_local_to_gmt(day_count,min_count,param_tz,param_ds)
+		td_to_str(fld_val,day_count,min_count,seconds,mseconds)
+	end if
+
+end sub
+
+'------------------------------------------------------------------------------
+sub callback_agg_stg_mod_sg(byref stg_name as string, index as byte, byref stg_val as string, op as en_agg_rdwr)
+
+end sub
+'------------------------------------------------------------------------------
+public sub device_replace_chr(byref s as string, a as string, b as string)
+	dim pos as byte
+	dim temp as string
+	pos = instr(1,s,a,1)
+	while pos > 0 
+		temp = right(s,len(s)-pos-len(a)+1)
+		s = left(s,pos-1)+b+temp
+		pos = instr(pos+1,s,a,1)
+	wend
+end sub
+
+'------------------------------------------------------------------------------
+public sub set_net_ip()
+'Correctly sets new IP for use (from the IP setting)
+	dim s as string(16)
+	dim x,f as byte
+
+	s=stg_get("IP",0)
+	s=ddval(s)
+	
+	'first number can't be 0 or >223
+	x=asc(left(s,1))
+	if x=0 or x>223 then
+		s=right(s,3)
+		s=chr(1)+s
+	end if
+	
+	'last number can't be 0 or 255
+	x=asc(right(s,1))
+	if x=0 or x=255 then
+		s=left(s,3)+chr(1)
+	end if
+	
+	'shut all sockets!
+	sock.inconenabledmaster=NO 
+	for f=0 to sock.numofsock-1
+		sock.num=f
+		sock.discard
+		while sock.statesimple<>PL_SSTS_CLOSED
+		wend
+	next f
+	
+	'change the IP
+	net.ip=ddstr(s)
+	net.netmask=stg_get("NM",0)
+	net.gatewayip=stg_get("GI",0)
+	sock.inconenabledmaster=YES 
+end sub
+
+'------------------------------------------------------------------------------
+public sub date_time_str(byref date_str as string(14), byref hr_str as string(2),byref min_str as string(2), byref sec_str as string(2),byref wday_str as string(3), TZ_time as no_yes)
+'Read from the rtc of the system, and convert the raw rtc value into strings of date, hour, minute and second.
+	dim wSysDaycount, wSysMincount as word
+	dim bSysSec as byte
+	dim wd as pl_days_of_week
+	dim sTime as string(19)
+
+	rtc.getdata(wSysDaycount, wSysMincount,bSysSec)
+	if TZ_time=YES then
+		td_gmt_to_local(wSysDaycount, wSysMincount, param_tz, param_ds)
+	end if
+		
+	if td_to_str(sTime,wSysDaycount,wSysMincount,bSysSec,0)<>OK then
+		wSysDaycount=0
+		wSysMincount=0
+		wSysMincount=0
+		sTime="20000101000000000"
+		rtc.setdata(wSysDaycount, wSysMincount,bSysSec)
+	end if
+	
+	date_str=left(sTime,4)+"/"+mid(sTime,5,2)+"/"+mid(sTime,7,2)
+	hr_str = mid(sTime,9,2)
+	min_str = mid(sTime,11,2)
+	sec_str = mid(sTime,13,2)
+	
+	wd = weekday(wSysdaycount)
+		select case wd
+		case PL_DOW_MONDAY:
+			wday_str = "MON"
+		case PL_DOW_TUESDAY:
+			wday_str = "TUE"
+		case PL_DOW_WEDNESDAY:
+			wday_str = "WED"
+		case PL_DOW_THURSDAY:
+			wday_str = "THU"
+		case PL_DOW_FRIDAY:
+			wday_str = "FRI"
+		case PL_DOW_SATURDAY:
+			wday_str = "SAT"
+		case PL_DOW_SUNDAY:
+			wday_str = "SUN"
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+public function device_get_mem_usage() as byte
+	dim used_record as word
+	dim free_record as word
+	dim usage as word
+	dim dtemp1, dtemp2 as dword
+	dim wtemp1 as word
+	dim t as tbl_type
+	dim tbl_result as en_tbl_status_codes
+	
+	tbl_result=tbl_select("CR","CR")
+	if tbl_result<>EN_TBL_STATUS_OK then goto fail
+	
+	tbl_result=tbl_get_table_info("CR",t)
+	if tbl_result<>EN_TBL_STATUS_OK then goto fail
+	
+	tbl_result=tbl_get_num_records(used_record,no)
+	if tbl_result<>EN_TBL_STATUS_OK then goto fail
+	
+	dtemp2=fd.filesize
+	dtemp1=dtemp2 mod SECTOR_SIZE
+	if dtemp1>0 then 
+		wtemp1=SECTOR_SIZE-dtemp1		'number of free byte for the used sector
+	else
+		wtemp1=0						'last sector was fully used
+	end if
+	dtemp1=fd.getfreespace
+	
+	if dtemp2=0 then dtemp1=dtemp1+1 	'empty file takes one sector, that means even if filesize is 0, freespace is still equal to 1 sector.
+		
+	dtemp1=dtemp1*SECTOR_SIZE/t.rec_size+used_record+wtemp1/t.rec_size
+	if dtemp1>t.maxrecs then dtemp1=t.maxrecs
+	free_record=dtemp1-used_record
+	if used_record<dtemp1 then
+		dtemp2=used_record
+		dtemp2=dtemp2*100
+		dtemp1=dtemp2/dtemp1
+		usage=dtemp1
+	else
+		usage=100
+	end if
+	if fd.ready=NO then 
+		tbl_result=EN_TBL_STATUS_FAILURE
+		goto fail
+	end if
+	device_get_mem_usage=usage
+	exit function
+fail:
+	usage=255
+	used_record=0
+	free_record=0
+	device_get_mem_usage=100	
+end function
+
+'------------------------------------------------------------------------------
+public sub device_key_proc(key_event as pl_kp_event_codes, key_code as byte)
+	select case on_kp_event_dest
+	case ON_KP_EVENT_DEST_MENU,ON_KP_EVENT_DEST_LIST_BOX,ON_KP_EVENT_DEST_MSG_BOX:
+		select case key_event
+		case PL_KP_EVENT_PRESSED:
+			beep.divider = 20000
+			beep.play("B-",PL_BEEP_CANINT)
+			key_led_pressed(key_code)	
+		case PL_KP_EVENT_RELEASED:
+			key_led_reset
+		end select
+	case ON_KP_EVENT_DEST_INPUT_BOX
+		select case key_event
+		case PL_KP_EVENT_PRESSED:
+			beep.divider = 20000
+			beep.play("B-",PL_BEEP_CANINT)
+			key_led_pressed(key_code)
+		case PL_KP_EVENT_RELEASED:
+			key_led_reset
+		case PL_KP_EVENT_LONGPRESSED:
+			beep.divider = 20000
+			beep.play("B-",PL_BEEP_CANINT)
+		end select
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_pause(sec as word)
+'Descr: pause the device for number of sec
+	dim t as word
+	t = sys.timercount
+	while sys.timercount < t+sec*2
+		if sys.timercount < t then t = sys.timercount 
+	wend
+end sub
+
+'------------------------------------------------------------------------------
+public function device_command_confirm(s as string) as string
+	select case s 
+	case "I":
+		device_command_confirm = COMMAND_INITIALIZE
+	case "E":
+		device_command_confirm = COMMAND_REBOOT
+	case "K":
+		device_command_confirm = COMMAND_TIME_SYNC
+	case "J":
+		device_command_confirm = COMMAND_CLEAR_LOG
+	case "D":
+		device_command_confirm = COMMAND_CLEAR_WL
+	case "B":
+		device_command_confirm = COMMAND_CLEAR_AB		
+	end select
+end function
+
+'------------------------------------------------------------------------------
+public sub device_lcd_print_logo()
+'Descr: display logo image file on LCD
+	romfile.open(LCD_STD_FONT)
+	lcd.setfont(romfile.offset)
+	lcd.forecolor = LCD_FORECOLOR
+	lcd.backcolor = LCD_BACKCOLOR
+	lcd_clear(0,0,lcd.width,lcd.height)
+ 
+	romfile.open("logo.bmp")
+	lcd.bmp(romfile.offset,4,2,0,0,30,30)
+	romfile.open("giga.bmp")
+	lcd.bmp(romfile.offset,4,35,0,0,121,16)
+	lcd.textalignment = PL_LCD_TEXT_ALIGNMENT_TOP_RIGHT
+	lcd.textverticalspacing = 1
+	lcd.printaligned("TR610`Time Recorder`"+FIRMWARE_VERSION,40,2,lcd.width-44,30)
+	lcd.print("Please wait...",4,lcd.height-FONT_HEIGHT-1)
+end sub
+
+'------------------------------------------------------------------------------
+public function device_operation(s as string(1)) as string(1)
+	dim result as en_stg_status_codes
+	dim ts_result as sntp_states
+	dim temp as string
+	dim tbl_result as en_tbl_status_codes
+	select case s
+	case "I":
+		result = device_settings_initialize
+		if result = EN_STG_STATUS_OK then
+			sys.reboot
+		else
+			lcd_print_msg(MSG_HTML_TBL_INTERNAL_ERROR,1,1,lcd.width,lcd.height,yes)
+			device_pause(2)
+			sys.reboot
+		end if
+	case "E":
+		sys.reboot
+	case "M":
+		if fd.formatj(fd.availableflashspace-100,16,100) = PL_FD_STATUS_OK then
+			goto reply_ok
+		else
+			lcd_print_msg(MSG_HTML_TBL_INTERNAL_ERROR,1,1,lcd.width,lcd.height,yes)
+			device_pause(2)
+			ui_clock_force_print = YES
+			goto reply_failed		
+		end if
+	case "K":
+		if param_ar=1 then 
+			ts_result = SNTP_CONNECT_FAIL
+			if param_tf=1 then stg_sg("TF",0,"0",EN_STG_SET)
+			goto error
+		end if
+		if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_NONE then lcd_print_msg(SNTP_TS_CONNECTING,24,15,80,37,yes)
+		select case stg_sg("TS",0,temp,EN_STG_GET)
+		case EN_STG_STATUS_OK:
+			dim wDaycount, wMincount as word
+			dim bSec, prev_sock as byte
+			prev_sock = sock.num
+			sock.num=SOCK_SNTP
+			ts_result = ConnectToTimeServer(temp,"",wDaycount, wMincount,bSec)
+			if ts_result = SNTP_TIME_SYNC_OK then 
+				rtc.setdata(wDaycount, wMincount,bSec)
+			end if
+			sock.num = prev_sock
+error:
+			select case ts_result
+				case SNTP_ERROR_FORMAT
+					if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_NONE then lcd_print_msg(SNTP_TS_ERROR_FORMAT,24,15,80,37,yes) 
+					device_pause(2)
+					goto reply_err
+				case SNTP_REPLY_TIMEOUT
+					if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_NONE then lcd_print_msg(SNTP_TS_REPLY_TIMEOUT,24,15,80,37,yes)
+					device_pause(2)
+					goto reply_rejected
+				case SNTP_CONNECT_FAIL
+					if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_NONE then lcd_print_msg(SNTP_TS_CONNECT_FAIL,24,15,80,37,yes)
+					device_pause(2)
+					goto reply_denied
+				case SNTP_TIME_SYNC_OK
+					if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_NONE then lcd_print_msg(SNTP_TS_TIME_SYNC_OK,24,15,80,37,yes)
+					device_pause(2)
+					goto reply_ok
+			end select
+			ui_clock_force_print = YES
+		case EN_STG_STATUS_UNKNOWN:
+			goto reply_err
+		case else:
+			goto reply_failed
+		end select
+	case "J","D","B":
+		if s="J" then tbl_select("CR","CR")
+		if s="D" then tbl_select("TBL_WL","TBL_WL")
+		if s="B" then tbl_select("AU_BUT","AU_BUT")
+		if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_NONE then lcd_print_msg(COMMAND_CLEARING_LOG,24,15,80,37,yes)
+		
+		tbl_result = tbl_clear()
+		device_pause(2)
+		lcd_clear(24,15,80,37)
+		if tbl_result = EN_TBL_STATUS_OK then
+			print_bar = YES
+			ui_clock_force_print = YES
+			goto reply_ok
+		else
+			lcd_print_msg(SYS_ERROR_REBOOT,24,15,80,37,yes)
+			device_pause(2)
+			lcd_clear(24,15,80,37)
+			ui_clock_force_print = YES
+			goto reply_failed
+		end if		
+	case "Z":
+		io.num = RELAY_IO1
+		io.state = LOW
+		io.num = RELAY_IO2
+		io.state = LOW 
+		relay_counter1 = RELAY_TIMER
+		relay_counter2 = RELAY_TIMER
+		goto reply_ok
+	case "U":
+		beep.divider = 20000
+		beep.play("BBBB-",PL_BEEP_CANINT)
+		pat.play(PAT_BLINK_BOTH_IN_TURNS_FAST,PL_PAT_CANINT)
+		goto reply_ok
+	end select
+goto reply_null
+
+reply_rejected:
+	device_operation="R"
+	goto finish
+reply_err:
+	device_operation="C"
+	goto finish
+reply_denied:
+	device_operation="D"
+	goto finish
+reply_failed:
+	device_operation="F"
+	goto finish
+reply_ok:
+	device_operation="A"
+	goto finish	
+finish:
+
+reply_null:
+end function
+
+'------------------------------------------------------------------------------
+public sub device_card_read(byref sID as string)
+'Descr: When ID card is read, compare with Master card, if it's a mastcard, call the setting menu otherwise save the event. 
+	dim result as en_tbl_status_codes
+	dim sMC as string(ID_LEN)
+	dim temp as string
+	dim rec_num as word
+	beep.divider = 10000	
+	beep.play("B-",PL_BEEP_CANINT)
+	stg_sg("MC",0,sMC,EN_STG_GET)
+	tbl_select("TBL_WL","TBL_WL")
+	if sID = "" then exit sub
+	if sID = sMC then
+		key_led_reset
+		mc_read = YES
+		exit sub
+	else
+		if param_is>0 and param_il<=ID_LEN then
+			sID=mid(sID,param_is,param_il)
+		else
+			sID=""
+		end if
+		
+		auto_event_timer=0
+		rec_num = 1
+		if stg_sg("WL",0,temp,EN_STG_GET)<>EN_STG_STATUS_OK then 
+			temp = SETTING_UNKNOWN
+			ui_clock_card_read(temp)
+			exit sub
+		end if
+		if temp = "1" then
+			if tbl_record_find(EN_TBL_RECORD_ACTIVE,sID,"ID",rec_num,EN_TBL_SEARCH_DOWN,PL_FD_FIND_EQUAL)<>EN_TBL_STATUS_OK then 
+				temp = MSG_INVAILD_ID
+				ui_clock_card_read(temp)
+				beep.divider = 10000
+				beep.play("BBBBBB",PL_BEEP_CANINT)
+				result = device_add_record(sID)
+				goto varify
+			else 
+				if tbl_record_sg(rec_num,EN_TBL_GET)<>EN_TBL_STATUS_OK then temp = MSG_SYS_ERROR
+				if tbl_field_sg("NAME",temp,EN_TBL_GET)<>EN_TBL_STATUS_OK then 
+					temp = MSG_SYS_ERROR
+				#if UTF8_CONVERT	
+					else
+						utf8_to_win1250(temp)
+				#endif
+				end if
+				if temp = MSG_SYS_ERROR then 
+					ui_clock_card_read(temp)
+					exit sub
+				end if
+			end if
+		else
+			if sID="" then
+				temp="bad format"
+			else
+				temp = sID
+			end if
+			
+		end if
+		ui_clock_card_read(temp)
+		
+		if sID="" then exit sub
+		
+		select case current_event
+		case EVENT_IN:
+			if param_b1<2 then device_operation("Z")
+			
+		case EVENT_OUT:
+			if param_b2<2 then device_operation("Z")
+			
+		case EVENT_TEMPIN:
+			if param_b3<2 then device_operation("Z")
+			
+		case EVENT_TEMPOUT:		
+			if param_b4<2 then device_operation("Z")
+		
+		end select
+		
+		result = device_add_record(sID)
+varify:
+		select case result
+		case EN_TBL_STATUS_OK: exit sub
+		case EN_TBL_STATUS_FULL: temp = MSG_SYS_FD_FULL
+		case else
+			temp = MSG_SYS_ERROR
+		end select
+		ui_clock_card_read(temp)
+	end if
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_html_proc_cmd()
+	dim s as string
+	dim sSessionID as string(SESSION_LEN)
+
+	s = get_http_argument(sock.httprqstring,"opt=")
+	sSessionID = get_http_argument(sock.httprqstring,"session=")
+	Select case s
+		case "login":
+			if login(CMD_MODE_HTTP,sSessionID,0)<>OK then
+				html_login_message=HLM_PRIORITY_REJECTED
+				logout()
+				sock_setsend("onload = IndexPage()")
+			end if
+		case "synctime":
+			if sync_success = YES then exit sub
+			sock.close
+			if sync_retry > 0 then 
+				s = device_operation("K")
+				if s <> "A" then 
+					sync_success = NO	
+					sync_retry = sync_retry - 1
+					if sync_retry = 0 then sync_success = NO
+				else
+					sync_success = YES
+					sync_retry = sync_retry - 1
+				end if
+			end if
+			ui_clock_force_print = YES
+			lcd_clear(24,15,80,37)	
+		case "logout":
+			sock_setsend("onload = IndexPage()")
+			html_login_message = HLM_LOGGED_OUT
+			logout()
+		case "init":
+			index_page_socknum = 255
+			device_settings_initialize
+			html_reboot_flag = YES
+			sock_setsend("onload = IndexPage()")		
+		case "reboot":
+			index_page_socknum = 255
+			html_reboot_flag = YES
+			sock_setsend("onload = IndexPage()")
+		case "format":
+			index_page_socknum = 255
+			device_operation("M")
+			html_reboot_flag = YES
+			sock_setsend("onload = IndexPage()")			
+	end select
+end sub
+'------------------------------------------------------------------------------
+public sub device_html_sync_state()
+	if sync_retry > 0 then 
+		if sync_retry = DEVICE_SNTP_RETRY then 
+			sock_setsend("<h3>Synchronizing time with Internet Time Server...</h3>")
+		else
+			if sync_success = NO then
+				sock_setsend("<h3>Fail to synchronize, retry...."+chr(40)+str(DEVICE_SNTP_RETRY-sync_retry)+"/"+str(DEVICE_SNTP_RETRY-1)+chr(41)+"</h3>")
+			else
+				sock_setsend("<h3>Synchronization Successful! Redirecting to Time Setting Page in 3 second</h3>")
+			end if
+		end if
+	else
+		sock_setsend("<h3>Fail to synchronize! Redirecting to Time Setting Page in 3 second</h3>")
+	end if
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_html_sync()
+	if sync_retry > 0 and sync_success = NO then
+		sock_setsend("<meta http-equiv='Refresh' content='"+str(SNTP_WAIT_REPLY*SNTP_RETRY/2)+";url=sync.html?session="+login_data+"&opt=synctime&target=showframe'>")
+	else 
+		sock_setsend("<meta http-equiv='Refresh' content='3;url=time.html?session="+login_data+"&target=showframe'>")
+	end if
+end sub
+'------------------------------------------------------------------------------
+public sub device_setting_saved(sname as string(STG_MAX_SETTING_NAME_LEN), index as byte, s as string)
+
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_modtime_sg(byref date_time as string(23), byref field_name as string, op as en_device_rdwr)
+	dim syear as string(4)
+	dim smonth,sdate,shour,smin,ssec as string(2)
+	dim smilsec as string(3)
+	dim tbl_modtime, setting_modtime as string(23)
+	dim modetime as struct_tbl_timestamp
+	dim pos, i as byte
+	
+	if op = DEVICE_GET then
+'Get the Modification Time
+		if stg_sg(field_name,0,"",EN_STG_GET) = EN_STG_STATUS_OK then
+			td_to_str(setting_modtime,stg_timestamp.ts_daycount, stg_timestamp.ts_mincount,stg_timestamp.ts_seconds,999)	'<<<<<<<<<<
+			date_time = setting_modtime
+			td_str_date_time_reformat(date_time,TD_STR_ADD_FORMATTING,TD_DATE_FORMAT_YYYYMMDD)	'<<<<<<<<<
+		else
+			if tbl_select(field_name,field_name) = EN_TBL_STATUS_OK then
+				tbl_timestamp_sg(modetime,EN_TBL_GET)
+				td_to_str(tbl_modtime,stg_timestamp.ts_daycount, stg_timestamp.ts_mincount,stg_timestamp.ts_seconds,999)	'<<<<<<<<<<
+				date_time = tbl_modtime
+				td_str_date_time_reformat(date_time,TD_STR_ADD_FORMATTING,TD_DATE_FORMAT_YYYYMMDD)	'<<<<<<<<<
+			end if
+		end if
+		
+	else
+'Set Modification Time
+		pos = instr(1,date_time,".",1)
+		pos = len(date_time)-pos
+		if stg_find(field_name)> 0 then
+			if date_time = "" then 
+				rtc.getdata(stg_timestamp.ts_daycount,stg_timestamp.ts_mincount,stg_timestamp.ts_seconds)
+				stg_timestamp.ts_milsec = 999
+				stg_set_ts(field_name)
+			else
+				td_str_date_time_reformat(date_time,TD_STR_REMOVE_FORMATTING,TD_DATE_FORMAT_YYYYMMDD)		'<<<<<<<<<<<<<
+				td_from_str(date_time,stg_timestamp.ts_daycount,stg_timestamp.ts_mincount,stg_timestamp.ts_seconds,stg_timestamp.ts_milsec)
+				stg_set_ts(field_name)
+			end if
+		else
+			if tbl_select(field_name,field_name) = EN_TBL_STATUS_OK then
+				if date_time = "" then
+					rtc.getdata(modetime.ts_daycount,modetime.ts_mincount,modetime.ts_seconds)
+					modetime.ts_milsec = 0
+				else
+					td_str_date_time_reformat(date_time,TD_STR_REMOVE_FORMATTING,TD_DATE_FORMAT_YYYYMMDD)		'<<<<<<<<<<<<<<<
+					td_from_str(date_time,stg_timestamp.ts_daycount,stg_timestamp.ts_mincount,stg_timestamp.ts_seconds,stg_timestamp.ts_milsec)
+					
+				end if
+				
+				tbl_timestamp_sg(modetime,EN_TBL_SET)
+			end if
+		end if
+	end if
+end sub
+
+'------------------------------------------------------------------------------
+public function device_setting_check(byref setting_name as string,byref setting_val as string) as ok_ng
+	device_setting_check=OK
+end function 
+
+'------------------------------------------------------------------------------
+public function device_spec_arg_sg(byref setting_name as string,index as byte, byref setting_val as string, byref stg_num as byte, rw as en_stg_rdwr) as en_stg_status_codes
+	dim wDaycount as word
+	dim date_str as string(14)
+	dim wMinute as word
+	dim time_str as string(19)
+			
+	select case rw
+	case EN_STG_GET:
+		Select case setting_name
+		case "TD":
+			rtc.getdata(wDaycount,wMinute,0)
+			td_gmt_to_local(wDaycount,wMinute,param_tz,param_ds)
+			td_to_str(date_str,wDaycount,0,0,0)
+			setting_val = mid(date_str,7,2)+"/"+mid(date_str,5,2)+"/"+left(date_str,4)
+			device_spec_arg_sg = EN_STG_STATUS_OK
+			stg_num = TD_STG_NUM
+		case "TT":
+			rtc.getdata(wDaycount,wMinute,0)
+			td_gmt_to_local(wDaycount,wMinute,param_tz,param_ds)
+			td_to_str(time_str,0,wMinute,0,0)
+			setting_val = mid(time_str,9,2)+":"+mid(time_str,11,2)
+			device_spec_arg_sg = EN_STG_STATUS_OK
+			stg_num = TT_STG_NUM
+		case else
+			device_spec_arg_sg = EN_STG_STATUS_UNKNOWN
+		end select
+	case EN_STG_SET:
+		Select case setting_name
+		case "TD":
+			dim pos1,pos2 as byte
+			dim sYear as string(4)
+			dim sMonth, sDate as string(2)
+			pos1 = instr(1,setting_val,"/",1)
+			pos2 = instr(pos1+1,setting_val,"/",1)
+			sYear = mid(setting_val,pos2+1,4)
+			sMonth = mid(setting_val,pos1+1,2)
+			sDate = mid(setting_val,1,2)
+			if clock_set_time(sYear,sMonth,sDate,"","","00",yes) = true then
+				device_spec_arg_sg = EN_STG_STATUS_OK
+			else
+				device_spec_arg_sg = EN_STG_STATUS_INVALID
+			end if
+			stg_num = TD_STG_NUM
+		case "TT":
+			if clock_set_time("","","",mid(setting_val,1,2),mid(setting_val,4,2),"00",yes) = true then
+				device_spec_arg_sg = EN_STG_STATUS_OK
+			else
+				device_spec_arg_sg = EN_STG_STATUS_INVALID
+			end if
+			stg_num = TT_STG_NUM
+		case else
+			device_spec_arg_sg = EN_STG_STATUS_UNKNOWN
+		end select
+	end select
+end function
+
+'------------------------------------------------------------------------------
+public sub device_log_download()
+	dim s, stemp1, stemp2 as string
+	dim s_id as string(ID_LEN)
+	dim i,j,b as byte
+	dim wdaycount, wmincount as word
+	dim bsec as byte
+	lcd_print_msg("File downloading`please Wait",20,10,lcd.width-40,lcd.height-30,yes)
+	reset_login_timeout
+	kp.enabled = NO
+	for i = READER_PORT_NUM to READER_PORT_NUM+NUM_OF_READER-1
+		ser.num = i
+		ser.enabled = NO
+	next i
+	tbl_select("CR","CR")
+	fd.setpointer(1)
+	do	
+		s = ""
+		stemp1 = fd.getdata(192)
+		for j = 0 to 5
+		stemp2 = mid(stemp1,1+32*j,32)
+		if left(stemp2,1) = ACTIVE_FLAG then
+			s_id=mid(stemp2,11,ID_LEN)
+			b=instr(1,s_id,chr(0),1)
+			if b>0 then s_id=left(s_id,b-1)
+			s = s+s_id+","
+			select case asc(mid(stemp2,11+ID_LEN,1))
+			case 0: s = s+"CLOCK IN,"
+			case 1: s = s+"CLOCK OUT,"
+			case 2: s = s+"TEMP IN,"
+			case 3: s = s+"TEMP OUT,"
+			end select
+			wdaycount = asc(mid(stemp2,24,1))*256+asc(mid(stemp2,25,1))
+			wmincount = asc(mid(stemp2,26,1))*256+asc(mid(stemp2,27,1))
+			bsec = asc(mid(stemp2,28,1))
+			td_to_str(stemp2,wdaycount,wmincount,bsec,0)
+			s = s+stemp2+chr(CR)+chr(LF)
+		end if
+		next j			
+		sock_setsend(s)
+	loop while fd.pointer < fd.filesize and sock.statesimple = PL_SSTS_EST 
+	lcd_clear(19,9,lcd.width-38,lcd.height-28)
+	ui_clock_force_print = YES
+	kp.enabled = YES
+	for i = READER_PORT_NUM to READER_PORT_NUM+NUM_OF_READER-1
+		ser.num = i
+		ser.enabled = YES
+	next i
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_sys_busy(busy as no_yes)
+'Descr: display busy icon on LCD
+	dim x,y, x_offset as byte
+	if on_sys_timer_event_dest <> ON_SYS_TIMER_EVENT_DEST_CLOCK then exit sub	
+	if busy= YES then
+		romfile.open(SMALL_ICON_FILE)
+		x_offset = 50
+		x = 37
+		y = lcd.height - 10
+		lcd.bmp(romfile.offset,x,y,x_offset,0,6,9)
+	else
+		x = 37
+		y = lcd.height - 10
+		lcd_clear(x,y,6,9)
+	end if
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_wl_download()
+	dim s, stemp1 as string
+	dim i as byte
+	dim rec_num as word
+	
+	lcd_print_msg("File downloading`please Wait",20,10,lcd.width-40,lcd.height-30,yes)
+	reset_login_timeout
+	kp.enabled = NO
+	for i = READER_PORT_NUM to READER_PORT_NUM+NUM_OF_READER-1
+		ser.num = i
+		ser.enabled = NO
+	next i
+	
+	tbl_select("TBL_WL","TBL_WL")
+	rec_num=0
+	do	
+		s = ""
+		rec_num=rec_num+1
+		if tbl_record_read_active(rec_num)=EN_TBL_STATUS_OK then
+			tbl_field_sg("ID",stemp1,EN_TBL_GET)
+			s=s+stemp1+chr(COMMA)
+			tbl_field_sg("NAME",stemp1,EN_TBL_GET)
+			s=s+stemp1+chr(CR)+chr(LF)
+		end if
+
+		if len(s)>0 then
+			sock_setsend(s)
+		end if
+	loop while rec_num>0 and sock.statesimple=PL_SSTS_EST 
+
+	lcd_clear(19,9,lcd.width-38,lcd.height-28)
+	ui_clock_force_print = YES
+	kp.enabled = YES
+	for i = READER_PORT_NUM to READER_PORT_NUM+NUM_OF_READER-1
+		ser.num = i
+		ser.enabled = YES
+	next i
+end sub
+
+'------------------------------------------------------------------------------
+public sub device_tbl_deleted(tbl_name as string)
+	print_bar = YES
+	ui_clock_force_print = YES
+end sub
+
+'------------------------------------------------------------------------------
+function device_settings_initialize() as en_stg_status_codes
+'initialize device, set the setting modify time to 2000,01,01
+	dim result as en_stg_status_codes
+	
+	lcd_print_msg(COMMAND_INITIALING,24,15,80,37,yes)
+	device_pause(2)
+	
+	stg_timestamp.ts_daycount = 0
+	stg_timestamp.ts_mincount = 0
+	stg_timestamp.ts_seconds = 0
+	stg_timestamp.ts_milsec = 0
+	
+	result = stg_restore_multiple(EN_STG_INIT_MODE_NORMAL)
+	if result = EN_STG_STATUS_OK then
+		lcd_print_msg(INITIALIZATION_SUCCESS,10,5,108,47,yes)			
+		device_pause(3)
+		lcd_clear(0,0,lcd.width,lcd.height)
+	else
+		lcd_print_msg(INITIALIZATION_FAIL,24,15,80,37,yes)
+	end if
+	device_settings_initialize = result
+	index_page_socknum=255
+end function
+
+'------------------------------------------------------------------------------
+function device_add_record(sID as string(ID_LEN)) as en_tbl_status_codes
+	dim wdaycount, wmincount as word
+	dim bsec as byte
+	dim stemp as string(32)
+
+	rtc.getdata(wdaycount,wmincount,bsec)
+	td_gmt_to_local(wdaycount,wmincount,param_tz,param_ds)
+	td_to_str(stemp,wdaycount,wmincount,bsec,0)
+	tbl_select("CR","CR")
+	tbl_field_sg("id",sID,EN_TBL_SET)
+	tbl_field_sg("type",str(current_event),EN_TBL_SET)
+	tbl_field_sg("date",stemp ,EN_TBL_SET)
+
+	stemp=""
+	device_add_record = tbl_record_add(stemp)
+	device_modtime_sg("","CR",DEVICE_SET)
+	if login_mode = CMD_MODE_AGGREGATE then
+		agg_check_stored_events()
+	end if
+end function
+
+'------------------------------------------------------------------------------
+function clock_set_time(sYear as string(4), sMonth as string(2), sDate as string(2), sHour as string(2), sMin as string(2), sSec as string(2), TZ_time as no_yes) as boolean
+'Set the rtc value according to the function parameters
+	dim bSysSec,bYear,bMonth,bDate,bHour,bMin as byte
+	dim wSysDaycount, wSysMincount as word
+	
+	rtc.getdata(wSysDaycount,wSysMincount,bSysSec)
+	if TZ_time=YES then
+		td_gmt_to_local(wSysDaycount,wSysMincount,param_tz,param_ds)
+	end if
+
+	if len(sYear) = 0 then sYear = str(year(wSysDaycount)+2000)
+	if len(sMonth) = 0 then sMonth = str(month(wSysDaycount))
+	if len(sDate) = 0 then sDate = str(date(wSysDaycount))
+	if len(sHour) = 0 then sHour = str(hours(wSysMincount))
+	if len(sMin) = 0 then sMin = str(minutes(wSysMincount))
+	if len(sSec) = 0 then sSec = str(bSysSec)
+
+	if val(sYear) < 2000 or val(sYear) > 2099 then
+		goto fail
+	else
+		bYear = val(sYear)-2000
+	end if
+	
+	bMonth = val(sMonth)
+	bDate = val(sDate)
+	wSysDaycount = daycount(bYear,bMonth,bDate)	
+	
+	bHour = val(sHour)
+	bMin = val(sMin)
+	wSysmincount = mincount(bHour,bMin)
+	
+	bSysSec = val(sSec)
+
+	if wSysDaycount = 65535 or wSysmincount = 65535 or bSysSec > 59 then
+fail:		
+		clock_set_time = false
+		exit function
+	else
+		
+		if TZ_time=YES then
+			td_local_to_gmt(wSysDaycount,wSysMincount,param_tz,param_ds)
+		end if
+		rtc.setdata(wSysDaycount,wSysMincount,bSysSec)	
+		clock_set_time = true
+	end if
+end function
+
+'------------------------------------------------------------------------------
+public sub print_clock_button(byref on_off as string(4),repaint as no_yes,revert as no_yes)
+	dim w1,w2,w3,w4 as word
+	
+	if param_b1>0 then 
+		w1=BMP_IN_XOFFSET
+	else
+		w1=BMP_NONE
+	end if
+	
+	if param_b2>0 then 
+		w2=BMP_OUT_XOFFSET
+	else
+		w2=BMP_NONE
+	end if
+	
+	if param_b3>0 then 
+		w3=BMP_TIN_XOFFSET
+	else
+		w3=BMP_NONE
+	end if
+	
+	if param_b4>0 then 
+		w4=BMP_TOUT_XOFFSET
+	else
+		w4=BMP_NONE
+	end if
+
+	lcd_display_button(w1,w2,w3,w4,on_off,repaint,revert)
+end sub
+
+'------------------------------------------------------------------------------
+public sub load_auto_button_action()
+	dim i,j as byte
+	dim rec_num as word
+	dim act_tmp1, act_tmp2 as byte
+	dim time_tmp1, time_tmp2 as word
+	dim s1,s2 as string(8)
+
+	rec_num=1
+	auto_button_item=0
+	if tbl_select("AU_BUT","AU_BUT")<>EN_TBL_STATUS_OK then
+		stg_set("AB",0,"0")
+		exit sub
+	end if
+	do
+		if tbl_record_read_active(rec_num)=EN_TBL_STATUS_OK then
+			auto_button_item=auto_button_item+1
+			rec_num=rec_num+1
+			s1=tbl_field_get("time")
+			s2=right(s1,2)
+			s1=left(s1,2)
+			time_tmp1=mincount(val(s1),val(s2))
+			s1=tbl_field_get("act")
+			act_tmp1=val(s1)
+			for i=0 to auto_button_item-1
+				if i=auto_button_item-1 then
+					auto_button_time(i)=time_tmp1
+					auto_button_action(i)=act_tmp1
+				else
+					if time_tmp1<auto_button_time(i) then
+						for j=i to auto_button_item-1
+							if j<auto_button_item-1 then
+								time_tmp2=auto_button_time(j)
+								act_tmp2=auto_button_action(j)
+							end if
+							auto_button_time(j)=time_tmp1
+							auto_button_action(j)=act_tmp1
+							time_tmp1=time_tmp2
+							act_tmp1=act_tmp2
+						next j
+					end if
+				end if
+			next i
+		else
+			exit sub
+		end if
+	loop while rec_num>0 and auto_button_item<20
+end sub
+
+'------------------------------------------------------------------------------
+public sub execute_auto_button_action()
+	dim i as byte
+	dim day_count, min_count as word
+	dim event_action, b1_action, b2_action, b3_action, b4_action, last_event, last_b1, last_b2, last_b3, last_b4 as byte
+	
+	if param_ab<>1 or auto_button_item=0 or on_sys_timer_event_dest<>ON_SYS_TIMER_EVENT_DEST_CLOCK then exit sub
+	if auto_event_timer>0 then
+		auto_event_timer=auto_event_timer-1
+		if auto_event_timer>0 then exit sub
+	end if
+	
+	rtc.getdata(0,min_count,0)
+	td_gmt_to_local(day_count, min_count,param_tz,param_ds)
+	
+	event_action=255
+	b1_action=255
+	b2_action=255
+	b3_action=255
+	b4_action=255
+
+	last_event=255 
+	last_b1=255 
+	last_b2=255 
+	last_b3=255 
+	last_b4=255
+	
+	for i=0 to auto_button_item-1
+		select case auto_button_action(i)
+		case 0,1,2,3:
+			if min_count>=auto_button_time(i) then event_action=auto_button_action(i)
+			last_event=auto_button_action(i)
+		case 4,5,6:
+			if min_count>=auto_button_time(i) then b1_action=auto_button_action(i)
+			last_b1=auto_button_action(i)
+		case 7,8,9:
+			if min_count>=auto_button_time(i) then b2_action=auto_button_action(i)
+			last_b2=auto_button_action(i)
+		case 10,11,12:
+			if min_count>=auto_button_time(i) then b3_action=auto_button_action(i)
+			last_b3=auto_button_action(i)
+		case 13,14,15:
+			if min_count>=auto_button_time(i) then b4_action=auto_button_action(i)
+			last_b4=auto_button_action(i)
+		end select
+	next i
+	
+	if event_action=255 then
+		if last_event<>255 then
+			event_action=last_event
+		else
+			event_action=current_event
+		end if
+	end if
+	
+	if b1_action=255 then
+		if last_b1<>255 then
+			b1_action=last_b1
+		else
+			b1_action=param_b1
+		end if
+	end if
+	
+	if b2_action=255 then
+		if last_b2<>255 then
+			b2_action=last_b2
+		else
+			b2_action=param_b2
+		end if
+	end if
+	
+	if b3_action=255 then
+		if last_b3<>255 then
+			b3_action=last_b3
+		else
+			b3_action=param_b3
+		end if
+	end if
+	
+	if b4_action=255 then
+		if last_b4<>255 then
+			b4_action=last_b4
+		else
+			b4_action=param_b4
+		end if
+	end if
+	
+	select case event_action
+	case 0:
+		if current_event<>EVENT_IN and param_b1<>0 then ui_clock_key_proc(PL_KP_EVENT_PRESSED, keycodeF1)
+	case 1:
+		if current_event<>EVENT_OUT and param_b2<>0 then ui_clock_key_proc(PL_KP_EVENT_PRESSED, keycodeF2)
+	case 2:
+		if current_event<>EVENT_TEMPIN and param_b3<>0 then ui_clock_key_proc(PL_KP_EVENT_PRESSED, keycodeF3)
+	case 3:
+		if current_event<>EVENT_TEMPOUT and param_b4<>0 then ui_clock_key_proc(PL_KP_EVENT_PRESSED, keycodeF4)
+	end select
+	
+	select case b1_action
+	case 4:
+		if param_b1<>0 then 
+			stg_set("B1",0,"0")
+			device_modtime_sg("","B1",DEVICE_SET)
+		end if
+	case 5:
+		if param_b1<>1 then 
+			stg_set("B1",0,"1")
+			device_modtime_sg("","B1",DEVICE_SET)
+		end if
+	case 6:
+		if param_b1<>2 then 
+			stg_set("B1",0,"2")
+			device_modtime_sg("","B1",DEVICE_SET)
+		end if
+	end select
+	
+	select case b2_action
+	case 7:
+		if param_b2<>0 then 
+			stg_set("B2",0,"0")
+			device_modtime_sg("","B2",DEVICE_SET)
+		end if
+	case 8:
+		if param_b2<>1 then 
+			stg_set("B2",0,"1")
+			device_modtime_sg("","B2",DEVICE_SET)
+		end if
+	case 9:
+		if param_b2<>2 then 
+			stg_set("B2",0,"2")
+			device_modtime_sg("","B2",DEVICE_SET)
+		end if
+	end select
+	
+	select case b3_action	
+	case 10:
+		if param_b3<>0 then 
+			stg_set("B3",0,"0")
+			device_modtime_sg("","B3",DEVICE_SET)
+		end if
+	case 11:
+		if param_b3<>1 then 
+			stg_set("B3",0,"1")
+			device_modtime_sg("","B3",DEVICE_SET)
+		end if
+	case 12:
+		if param_b3<>2 then 
+			stg_set("B3",0,"2")
+			device_modtime_sg("","B3",DEVICE_SET)
+		end if
+	end select
+	
+	select case b4_action	
+	case 13:
+		if param_b4<>0 then 
+			stg_set("B4",0,"0")
+			device_modtime_sg("","B4",DEVICE_SET)
+		end if
+	case 14:
+		if param_b4<>1 then 
+			stg_set("B4",0,"1")
+			device_modtime_sg("","B4",DEVICE_SET)
+		end if
+	case 15:
+		if param_b4<>2 then 
+			stg_set("B4",0,"2")
+			device_modtime_sg("","B4",DEVICE_SET)
+		end if
+	end select
+end sub
+
+'------------------------------------------------------------------------------
+public function dot_decimal_to_dot_hex(byref mod_str as string) as string
+	dim s as string(8)
+	dim pos1,pos2 as byte
+	dim result_str as string
+	
+	result_str=""
+	pos1=0
+	do
+		pos1=instr(pos1+1,mod_str,".",1)
+		if pos1>0 then
+			pos2=instr(pos1+1,mod_str,".",1)
+			if pos2>0 then 
+				pos2=pos2-1
+			else
+				pos2=len(mod_str)
+			end if
+			s=mid(mod_str,pos1+1,pos2-pos1)
+			if s<>"" then
+				s=hex(val(s))
+				s=mid(s,3,2)
+				s=strgen(2-len(s),"0")+s
+				result_str=result_str+s+"."
+			end if
+		end if
+	loop while pos1>0
+	dot_decimal_to_dot_hex=left(result_str,len(result_str)-1)
+end function
+
+'------------------------------------------------------------------------------
+#if UTF8_CONVERT
+sub utf8_to_win1250(byref convert_str as string)
+	dim i ,convert_str_len ,u_len, u_val as byte
+	dim u_str as string(16)
+	dim pos as word
+	
+	convert_str_len=len(convert_str)
+	for pos=1 to convert_str_len
+		u_str=mid(convert_str,pos,1)
+		u_val=asc(u_str)
+		if u_val>127 then
+			u_str=bin(u_val)
+			u_len=0
+			for i=3 to 8
+				if mid(u_str,i,1)="1" then
+					u_len=u_len+1
+				else
+					exit for
+				end if
+			next i
+			u_str=mid(convert_str,pos,u_len)
+			
+			select case u_str
+			case bin_uf8_win1250_A5:
+				u_str="\xA5"
+			case bin_uf8_win1250_C6:
+				u_str="\xC6"
+			case bin_uf8_win1250_CA:
+				u_str="\xCA"
+			case bin_uf8_win1250_A3:
+				u_str="\xA3"
+			case bin_uf8_win1250_D1:
+				u_str="\xD1"
+			case bin_uf8_win1250_D3:
+				u_str="\xD3"
+			case bin_uf8_win1250_8C:
+				u_str="\x8C"
+			case bin_uf8_win1250_8F:
+				u_str="\x8F"
+			case bin_uf8_win1250_AF:
+				u_str="\xAF"
+			case bin_uf8_win1250_B9:
+				u_str="\xB9"
+			case bin_uf8_win1250_E6:
+				u_str="\xE6"
+			case bin_uf8_win1250_EA:
+				u_str="\xEA"
+			case bin_uf8_win1250_B3:
+				u_str="\xB3"
+			case bin_uf8_win1250_F1:
+				u_str="\xF1"
+			case bin_uf8_win1250_F3:
+				u_str="\xF3"
+			case bin_uf8_win1250_9C:
+				u_str="\x9C"
+			case bin_uf8_win1250_9F:
+				u_str="\x9F"
+			case bin_uf8_win1250_BF:
+				u_str="\xBF"
+			case else
+				u_str="\x21"
+			end select
+			
+			convert_str=left(convert_str,pos-1)+u_str+right(convert_str,convert_str_len-(pos+u_len-1))
+			convert_str_len=convert_str_len-u_len+1
+		end if
+	next pos
+end sub
+
+'------------------------------------------------------------------------------
+sub win1250_to_utf8(byref convert_str as string)
+	dim pos, convert_str_len as byte
+	dim u_str as string(2)
+	
+	convert_str_len=len(convert_str)
+	
+	for pos=1 to convert_str_len
+		u_str=mid(convert_str,pos,1)
+		select case u_str
+		case "\xA5":
+			u_str=bin_uf8_win1250_A5
+		case "\xC6":
+			u_str=bin_uf8_win1250_C6
+		case "\xCA":
+			u_str=bin_uf8_win1250_CA
+		case "\xA3":
+			u_str=bin_uf8_win1250_A3
+		case "\xD1":
+			u_str=bin_uf8_win1250_D1
+		case "\xD3":
+			u_str=bin_uf8_win1250_D3
+		case "\x8C":
+			u_str=bin_uf8_win1250_8C
+		case "\x8F":
+			u_str=bin_uf8_win1250_8F
+		case "\xAF":
+			u_str=bin_uf8_win1250_AF
+		case "\xB9":
+			u_str=bin_uf8_win1250_B9
+		case "\xE6":
+			u_str=bin_uf8_win1250_E6
+		case "\xEA":
+			u_str=bin_uf8_win1250_EA
+		case "\xB3":
+			u_str=bin_uf8_win1250_B3
+		case "\xF1":
+			u_str=bin_uf8_win1250_F1
+		case "\xF3":
+			u_str=bin_uf8_win1250_F3
+		case "\x9C":
+			u_str=bin_uf8_win1250_9C
+		case "\x9F":
+			u_str=bin_uf8_win1250_9F
+		case "\xBF":
+			u_str=bin_uf8_win1250_BF
+		case else
+			goto skip
+		end select
+		convert_str=left(convert_str,pos-1)+u_str+right(convert_str,convert_str_len-pos)
+		convert_str_len=convert_str_len+1
+		pos=pos+1
+skip:		
+	next pos
+	
+end sub
+#endif

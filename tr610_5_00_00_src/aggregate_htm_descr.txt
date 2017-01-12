@@ -1,0 +1,7 @@
+Setting	Setting										Setting 
+Name	String										Data
+
+>>AR	AggreGate connection						B,L,0-Disabled;1-Enabled;	^
+>>CT	Connection timeout (minutes, 0 to disable)	S,I,3	^
+>>DI	Server IP									S,I,15	^
+>>DP	Server port									S,I,5	^

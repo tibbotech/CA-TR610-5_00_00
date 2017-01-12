@@ -1,0 +1,29 @@
+[project]
+platform=Em1000
+name=DHCP project
+output=output.tpc
+debug=on
+watch=
+defines=/dOBJECT_FD=FD_ENABLED /dOBJECT_LCD=LCD_ENABLED /dLCD_TYPE=SAMSUNG_S6B0108 /dOBJECT_KP=KP_ENABLED
+transport=udp_broadcast
+[address1]
+transport=udp_broadcast
+address=0.24.77.80.0.78
+[file1]
+path=main.tbs
+type=basic
+opened=yes
+locked=no
+breakpoints=
+[file2]
+path=global.tbh
+type=header
+opened=yes
+locked=no
+breakpoints=
+[file3]
+path=dhcp.tbs
+type=basic
+opened=active
+locked=no
+breakpoints=

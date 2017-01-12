@@ -1,0 +1,10 @@
+Setting	Setting											Setting 
+Name	String											Data
+
+>>ON	Owner name (AggreGate User Account)				S,I,32	^
+>>DN	Device name (AggreGate Device Account) 			S,I,32	^
+>>PW	Password										S,I,6	^
+>>MM	Mounting method									B,L,0-Wall;1-Desktop;	^
+>>WL	White list										B,L,0-Disabled;1-Enabled;	^
+>>IL	Length of card ID								S,I,2	^
+>>IS	Starting position of card ID								S,I,2	^

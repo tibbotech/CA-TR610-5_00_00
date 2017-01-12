@@ -1,0 +1,46 @@
+	Acc	Men	Item	Item				Item
+	lvl	lvl	type	String				Data
+>>	0	0	F	Setup			^
+>>	0	1	F	General			^	
+>>	0	2	N	Owner name				S,I,ON,,A,6,N	^
+>>	0	2	N	Device name				S,I,DN,,A,6,N	^
+>>	0	2	N	Password				S,I,PW,,B,6,N	^
+>>	0	2	N	Mounting				S,L,MM,0-Wall;1-Desktop;	^
+>>	0	2	N	ID length				S,I,IL,,D,2,N	^
+>>	0	2	N	ID start pos				S,I,IS,,D,2,N	^
+>>	0	1	F	Button			^
+>>	0	2	N	Clock in				S,L,B1,0-Disabled;1-Enabled/rly;2-En/no rly;	^
+>>	0	2	N	Clock out				S,L,B2,0-Disabled;1-Enabled/rly;2-En/no rly;	^
+>>	0	2	N	Temp in					S,L,B3,0-Disabled;1-Enabled/rly;2-En/no rly;	^
+>>	0	2	N	Temp out				S,L,B4,0-Disabled;1-Enabled/rly;2-En/no rly;	^
+>>	0	2	N	Button Sch.				S,L,AB,0-Disabled;1-Enabled;	^
+>>	0	2	N	Edit B/S				S,T,AU_BUT,I,time,  :  ,D,4,N,L,act,0-Switch C. IN;1-Switch C. OUT;2-Switch T. IN;3-Switch T. OUT;4-C. IN(Dis.);5-C. IN(rly);6-C. IN(no rly);7-C. OUT(Dis.);8-C. OUT(rly);9-C. OUT(no rly);10-T. IN(Dis.);11-T. IN(rly);12-T. IN(no rly);13-T. OUT(Dis.);14-T. OUT(rly);15-T. OUT(no rly)	^
+>>	0	2	N	Clear B/S				C,B	^
+>>	0	1	F	Network			^
+>>	0	2	N	DHCP					S,L,DH,0-Disabled;1-Enabled;	^
+>>	0	2	N	IP address				S,I,IP,   .   .   .   ,D,12,N	^
+>>	0	2	N	Gateway IP				S,I,GI,   .   .   .   ,D,12,N	^
+>>	0	2	N	Netmask					S,I,NM,   .   .   .   ,D,12,N	^
+>>	0	1	F	AggreGate		^
+>>	0	2	N	Enable/Disable			S,L,AR,0-Disabled;1-Enabled;	^
+>>	0	2	N	Conn. timeout			S,I,CT,,D,3,N	^
+>>	0	2	N	Server IP				S,I,DI,   .   .   .   ,D,12,N	^
+>>	0	2	N	Server Port				S,I,DP,,D,5,N	^
+>>	0	1	F	Date/Time		^
+>>	0	2	F	Auto sync		^
+>>	0	3	N	Enable/Disable			S,L,TF,0-Disabled;1-Enabled;	^
+>>	0	3	N	Sync time				S,I,TC,  :  ,D,4,N	^
+>>	0	2	N	Time server				S,I,TS,   .   .   .   ,D,12,N	^
+>>	0	2	N	Sync now				C,K	^
+>>	0	2	N	Time zone				S,L,TZ,0--12;1--11;2--10;3--9;4--8;5--7;6--6;7--5;8--4:30;9--4;10--3;11--3:30;12--2;13--1;14-0;15-+1;16-+2;17-+3;18-+3:30;19-+4;20-+4:30;21-+5;22-+5:30;23-+5:45;24-+6;25-+6:30;26-+7;27-+8;28-+9;29-+9:30;30-+10;31-+11;32-+12;33-+13;	^
+>>	0	2	N	DST						S,L,DS,0-Off;1-On;	^
+>>	0	2	N	Set date				S,I,TD,  /  /    ,D,8,N	^
+>>	0	2	N	Set time				S,I,TT,  :  ,D,4,N	^
+>>	0	1	F	White list		^
+>>	0	2	N	Enable/Disable			S,L,WL,0-Disabled;1-Enabled;	^
+>>	0	2	N	Edit W/L				S,T,TBL_WL,I,ID,,B,12,N,I,NAME,,B,25,N	^
+>>	0	2	N	Clear W/L				C,D	^
+>>	1	0	N	Initialize				C,I	^
+>>	0	0	N	Reboot					C,E	^
+>>	1	0	N	Clear log				C,J	^
+

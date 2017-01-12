@@ -1,0 +1,76 @@
+<?
+	include "global.tbh"
+	dim flag as ok_ng
+?>
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<link rel="stylesheet" type="text/css" href="tables.css" />
+
+<script type="text/javascript">
+function FormSubmit()
+{
+<?html_table_time_mod("AU_BUT")?>
+document.getElementById("save").value="yes"
+document.getElementById("myForm").submit();
+}
+
+function IndexPage()
+{
+window.top.location.replace("Index.html");
+}
+function FormClear()
+{
+<?html_table_clear("AU_BUT")?>
+}
+</script>
+</HEAD>
+
+<body <?flag = html_login_verify(yes)?>>
+<? 
+	if flag = NG then goto finish
+?>
+<div>
+<?html_tables_add_record("AU_BUT")?>
+<br>
+	<table width='400' align=center border="0" cellspacing="0" cellpadding="0" >
+		<form id="myForm" action="input_ab.html" method="post" >
+		<input type='hidden' name='session' id='session' value='<?sock_setsend(login_data)?>'>
+		<input type ="hidden" id="save" name="save">
+		<tr><td width = 80%> <h3> Add button schedule item</h3> </td>
+		</tr>
+		<tr>
+		</tr>
+		<tr>
+			<td width = 80%>
+			<table width=100% border = "1">
+			<tr>
+			<th	width = 50%><b>Field name</b></th>
+			<th width = 50%><b>Field value</b></th>
+			</tr>
+			</table>		
+			</td>
+		</tr>
+		<? 
+			html_tables_input_print("AU_BUT") 
+		?>
+		<tr>
+		<td width = 80%>
+			<table width = 100% border="1" cellspacing="0" cellpadding="0">
+				<tr><td><table border="0" cellspacing="1" cellpadding="0">
+					<tr><td width='60'><a href = '#' onclick='FormSubmit()'> Add </a></td>
+					 	<td width='75'><a href = '#' onclick='FormClear()'>  Clear </a></td>
+					</tr></table>
+					</td>
+				</tr>
+			</table>
+		</td>
+		</tr>
+		</form>
+	</table>
+</div>
+</BODY>
+<?finish:
+?>
+</html>

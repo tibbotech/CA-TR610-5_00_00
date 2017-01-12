@@ -1,0 +1,24 @@
+'=============================================================
+'		UI_CLOCK.TBS
+'=============================================================
+CONST UI_CLOCK_X = 21 
+CONST UI_CLOCK_Y = 1
+CONST BMP_IN_XOFFSET = 1
+CONST BMP_OUT_XOFFSET = 18
+CONST BMP_TIN_XOFFSET = 35
+CONST BMP_TOUT_XOFFSET = 52
+
+enum ui_clock_results
+	CLOCK_RESULT_OK,
+	CLOCK_RESULT_FAIL
+end enum
+
+declare function ui_clock(x as word, y as word, force_print as no_yes) as ui_clock_results
+
+declare sub ui_clock_timer_proc
+declare sub ui_clock_card_read(sID as string(20))
+declare sub ui_clock_key_proc(key_event as pl_kp_event_codes, key_code as byte)
+
+declare ui_clock_force_print as no_yes
+declare mc_read as no_yes
+declare print_bar as no_yes

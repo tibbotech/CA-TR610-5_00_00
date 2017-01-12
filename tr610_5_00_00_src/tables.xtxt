@@ -1,0 +1,18 @@
+==CR	15000	L	0
+>>type	B	0	3	0
+>>id	S	1	12	xxxxxxxx
+>>date	T	6	0	20000101010101001
+==TBL_WL	255	T	1
+>>ID	S	1	12	xxxxxxxx
+>>NAME	S	0	40	^
+==AU_BUT	20	T	0
+>>time	T	1	0	0000
+>>act	B	0	15	0
+#define TBL_DESCRIPTOR_FILE "tables.xtxt"
+#define TBL_AGGREGATE_HASH 1
+#define TBL_MAX_TABLE_NAME_LEN 6
+#define TBL_MAX_FIELD_NAME_LEN 4
+#define TBL_MAX_FIELD_VALUE_LEN 41
+#define TBL_MAX_RECORD_SIZE 64
+#define TBL_MAX_NUM_TABLES 3
+#define TBL_MAX_TOTAL_NUM_FIELDS 13

@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+
+<HEAD>
+	<base href="<?%BaseDir?>"/>
+</HEAD>
+	
+<BODY>
+<table border="0" id = "auto_size"><tr><td>
+
+Type <br>
+<input type="text" ID="edit_Name" value="<?%external.Context.Name?>"/> <br>
+
+Description <br>
+<input type="text" ID="edit_Description" value="<?%external.Context.Description?>"/> <br>
+
+<hr>
+
+<script>
+
+function OnOK()
+{
+	external.Context.Name = document.getElementById("edit_Name").value;
+	external.Context.Description = document.getElementById("edit_Description").value;
+	external.EndDialog(1);
+}
+
+</script>
+
+<button width = "100" onclick="OnOK()">OK</button> &nbsp;
+<button width = "100" onclick="external.EndDialog(2)">Cancel</button> &nbsp;
+
+</td></tr></table>
+</BODY>
+
+</HTML>

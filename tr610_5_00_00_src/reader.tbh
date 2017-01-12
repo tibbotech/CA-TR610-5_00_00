@@ -1,0 +1,11 @@
+'=============================================================
+'	READER.TBS
+'=============================================================
+
+const READER_PORT_NUM = 0
+const NUM_OF_READER = 2
+const READER_PORT_BR = 9600
+
+declare sub reader_init
+declare sub master_set(ID as string(ID_LEN))
+declare sub reader_master_switch(enable as off_on) 

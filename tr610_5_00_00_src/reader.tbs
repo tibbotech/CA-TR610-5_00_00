@@ -1,0 +1,45 @@
+'*************************************************************************************************************************
+'            READER
+'	Initialize the com port for reader, and other reader related functions
+'*************************************************************************************************************************
+
+include "global.tbh"
+
+ '=============================================================
+public sub master_set(ID as string(ID_LEN))
+'store ID as master card, and turn off the initial flag
+	stg_sg("MC",0,ID,EN_STG_SET)
+	stg_sg("IF",0,"0",EN_STG_SET)
+end sub
+
+ '=============================================================
+sub reader_init()
+'Initialize the com port for reader
+	dim f as byte
+	for f = READER_PORT_NUM to READER_PORT_NUM+NUM_OF_READER-1
+		ser.num = f
+		ser.enabled = NO
+		ser.baudrate = ser.div9600/(READER_PORT_BR/9600)
+		ser.flowcontrol = DISABLED
+		ser.parity = PL_SER_PR_NONE
+		ser.bits = PL_SER_BB_8	
+		if ser.rxbuffsize = 0 then
+			ser.rxbuffrq(1)
+			sys.buffalloc
+		end if
+		ser.enabled = YES
+	next f
+end sub
+
+ '=============================================================
+public sub reader_master_switch(enable as off_on)
+	dim f as byte
+	for f = READER_PORT_NUM to READER_PORT_NUM+NUM_OF_READER-1
+		ser.num = f
+		if enable = PL_ON then 
+			ser.enabled = YES
+		else
+			ser.enabled = NO
+		end if
+	next f
+end sub

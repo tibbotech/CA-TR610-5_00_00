@@ -1,0 +1,54 @@
+<?include "global.tbh"
+declare tbl_upload_result as byte
+if tbl_upload_result = 0 then
+	lcd_print_msg(MSG_TBL_TABLE_UPLOAD,20,10,lcd.width-40,lcd.height-30,yes)
+	tbl_upload_result = html_tbl_upload
+else
+	while sock.httprqstring <> ""
+		sock.gethttprqstring(65535)
+	wend
+end if
+lcd_clear(19,9,lcd.width-38,lcd.height-28)
+if init_flag=1 then 
+	lcd_print_msg(MSCARD_ENROLL_NOTE,0,0,lcd.width,lcd.height,yes)
+else	
+	ui_clock_force_print = YES
+end if
+?>
+
+<html>
+<HEAD>
+
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+
+<link rel="stylesheet" type="text/css" href="tables.css" />
+<script type="text/javascript">
+function return_page()
+{
+	window.top.location.replace("white_list.html")
+}
+
+</script>
+
+</HEAD>
+<body>
+<div>
+<table width='600' align=center border="0" cellspacing="0" cellpadding="0" >
+<?
+	select case tbl_upload_result
+	case EN_TBL_STATUS_UNKNOWN_TABLE: sock_setsend("<tr><td><h3><font color=red>"+MSG_TBL_STATUS_UNKNOWN_TABLE+"</font></h3></td></tr>")
+	case EN_TBL_STATUS_FULL: sock_setsend("<tr><td><h3><font color=red><b>"+MSG_TBL_STATUS_FULL+"</b></font></h3></td></tr>")
+	case EN_TBL_STATUS_KEY_VIOLATION: sock_setsend("<tr><td><h3><font color=red>"+MSG_TBL_STATUS_KEY_VIOLATION+"</font></h3></td></tr>")
+	case EN_TBL_STATUS_INVALID: sock_setsend("<tr><td><h3><font color=red>"+MSG_TBL_STATUS_INVALID+"</font></h3></td></tr>")
+	case EN_TBL_STATUS_OK: sock_setsend("<tr><td><h3>Data Upload completed...</h3></td></tr>")
+	case 254:sock_setsend("<tr><td><h3><font color=red>Record not found!</font></h3></td></tr>")
+	case 255:sock_setsend("<tr><td><h3><font color=red>Authencation failed!</font></h3></td></tr>")
+	case else
+		sock_setsend("<tr><td><h3><font color=red><b>Error:"+str(tbl_upload_result)+"</font></h3></td></tr>")
+	end select
+?>
+</table>
+</div>
+</body>
+</html>

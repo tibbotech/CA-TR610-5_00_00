@@ -1,0 +1,288 @@
+'*************************************************************************************************************************
+'           CLOCK
+'	ui_clock module prints date and time on the LCD in a specific format.  The LCD is refreshed according to the time 
+'	changing. For example, when "Minute" changes, only the part of the LCD that shows "Minute" is refreshed, the rest 
+'	of LCD will not be reprint
+'	This clock LCD screen, also show the user card number, and the memory usage percentage bar, these are also be taken
+'	care of in this module.
+'	
+'*************************************************************************************************************************
+
+include "global.tbh"
+
+public dim print_bar as no_yes
+public dim ui_clock_force_print as no_yes
+
+dim ui_clock_id_timer as byte
+dim mc_read as no_yes
+dim clock_x, clock_y, clock_width, clock_height, x_offset, id_x, id_y as word
+dim second_offon as off_on
+dim pre_mincount,pre_daycount as word
+declare sub ui_clock_display(force_print as no_yes)
+
+'============================================================= 
+public function ui_clock(
+	x as word, 'x coordination
+	y as word, 'y coordination
+	force_print as no_yes	'if force_print = yes, print entire clock screen unconditionally, otherwise only print the part that is changing ("second, minute, date, etc...)
+	) as ui_clock_results
+	'Descr: 
+	dim backup_on_kp_event_dest as on_kp_event_destinations
+	dim backup_on_sys_timer_event_dest as on_sys_timer_event_destinations
+	dim backup_on_reader_event_dest as on_reader_event_destinations
+	dim date_str as string(10) 
+	dim hr_str, min_str,sec_str as string(2)
+	dim wday_str as string(3)
+
+	ui_clock_force_print=force_print
+	date_time_str(date_str, hr_str, min_str, sec_str, wday_str,yes)
+
+	backup_on_kp_event_dest=on_kp_event_dest
+	backup_on_sys_timer_event_dest=on_sys_timer_event_dest
+	backup_on_reader_event_dest=on_reader_event_dest
+	
+	on_kp_event_dest=ON_KP_EVENT_DEST_CLOCK
+	on_sys_timer_event_dest=ON_SYS_TIMER_EVENT_DEST_CLOCK
+	on_reader_event_dest=ON_READER_EVENT_DEST_CLOCK
+	mc_read=NO
+	ui_clock_id_timer=0 
+	clock_x=x 
+	clock_y=y
+
+	romfile.open(LCD_FIX_FONT)
+	lcd.setfont(romfile.offset)	
+	lcd.texthorizontalspacing=1	
+	x_offset = lcd.getprintwidth(date_str+" "+ wday_str)
+	
+	id_x = x + (x_offset - lcd.getprintwidth(strgen(ID_LEN,"0")))/2
+	id_y = lcd.height - FONT_HEIGHT-16-CK_ID_Y_OFFSET
+	romfile.open(LCD_LARGE_FONT)
+	lcd.setfont(romfile.offset)		
+	lcd.texthorizontalspacing=2
+	if lcd.getprintwidth(hr_str+"0"+min_str)<x_offset then 
+		x_offset=(x_offset-lcd.getprintwidth(hr_str+"0"+min_str))/2
+	else
+		x_offset=0
+	end if
+	
+	clock_width=lcd.width
+	clock_height=lcd.height-15	
+	lcd_clear(0,0,lcd.width,lcd.height)
+	
+	print_bar=YES
+	
+	ui_clock_display(ui_clock_force_print)
+	device_login_event(login_mode)
+	select case current_event
+	case EVENT_IN:
+		key_led_pressed(keycodeF1)
+		print_clock_button("1000",yes,no)
+
+	case EVENT_OUT:
+		key_led_pressed(keycodeF2)
+		print_clock_button("0100",yes,no)
+
+	case EVENT_TEMPIN:
+		key_led_pressed(keycodeF3)
+		print_clock_button("0010",yes,no)
+
+	case EVENT_TEMPOUT:
+		key_led_pressed(keycodeF4)
+		print_clock_button("0001",yes,no)
+	end select
+	
+	kp.enabled = NO
+	kp.genkpevent = YES
+	kp.enabled = YES
+wait:
+	doevents
+
+if mc_read = YES then
+		on_kp_event_dest=backup_on_kp_event_dest
+		on_sys_timer_event_dest=backup_on_sys_timer_event_dest
+		on_reader_event_dest = backup_on_reader_event_dest
+		exit function
+	end if
+goto wait
+end function
+
+'=============================================================
+sub ui_clock_display(force_print as no_yes)
+	dim date_str as string(10) 
+	dim hr_str, min_str,sec_str as string(2)
+	dim wday_str as string(3)
+	dim wSysMincount, wSysDaycount as word
+	dim bSysSec as byte
+	
+	rtc.getdata(wSysDaycount,wSysMincount,bSysSec)
+	td_gmt_to_local(wSysDaycount,wSysMincount,param_tz,param_ds)
+	if force_print = YES then
+		romfile.open(LCD_LARGE_FONT)
+		lcd.setfont(romfile.offset)
+		lcd.texthorizontalspacing=2
+		date_time_str(date_str, hr_str, min_str, sec_str, wday_str,yes)
+		lcd.fill(clock_x+lcd.getprintwidth(strgen(2,"0"))+x_offset+8,clock_y+FONT_HEIGHT+10+CLOCK_Y_OFFSET,3,3)
+		lcd.fill(clock_x+lcd.getprintwidth(strgen(2,"0"))+x_offset+8,clock_y+FONT_HEIGHT+18+CLOCK_Y_OFFSET,3,3)
+		lcd.print(min_str,clock_x+lcd.getprintwidth(strgen(3,"0"))+x_offset,clock_y+FONT_HEIGHT+4+CLOCK_Y_OFFSET)
+		lcd.print(hr_str,clock_x+x_offset,clock_y+FONT_HEIGHT+4+CLOCK_Y_OFFSET)
+		romfile.open(LCD_FIX_FONT)
+		lcd.setfont(romfile.offset)
+		lcd.texthorizontalspacing=1
+		lcd.print(date_str+" "+ wday_str,clock_x,clock_y)
+		clock_width = lcd.getprintwidth(date_str+" "+ wday_str)
+		pre_mincount = wSysMincount
+		pre_daycount = wSysDaycount
+		second_offon = PL_OFF
+		select case current_event
+		case EVENT_IN:
+			lcd_print_msg(CLOCK_IN, clock_x, id_y-3, clock_width, 14,no)
+		case EVENT_OUT:
+			lcd_print_msg(CLOCK_OUT, clock_x, id_y-3, clock_width, 14,no)
+		case EVENT_TEMPIN:
+			lcd_print_msg(CLOCK_TEMP_IN, clock_x, id_y-3, clock_width, 14,no)
+		case EVENT_TEMPOUT:
+			lcd_print_msg(CLOCK_TEMP_OUT, clock_x, id_y-3, clock_width, 14,no)
+		end select
+	end if	
+	
+	romfile.open(LCD_LARGE_FONT)
+	lcd.setfont(romfile.offset)
+	lcd.texthorizontalspacing=2
+	if second_offon = PL_ON then 
+		lcd_clear(clock_x+lcd.getprintwidth(strgen(2,"0"))+x_offset+7,clock_y+FONT_HEIGHT+8+CLOCK_Y_OFFSET,5,15)
+		second_offon = PL_OFF
+	else
+		lcd.fill(clock_x+lcd.getprintwidth(strgen(2,"0"))+x_offset+8,clock_y+FONT_HEIGHT+10+CLOCK_Y_OFFSET,3,3)
+		lcd.fill(clock_x+lcd.getprintwidth(strgen(2,"0"))+x_offset+8,clock_y+FONT_HEIGHT+18+CLOCK_Y_OFFSET,3,3)
+		second_offon = PL_ON
+	end if
+	
+	if wSysMincount <> pre_mincount then
+		date_time_str(date_str, hr_str, min_str, sec_str, wday_str,yes)
+		lcd.print(min_str,clock_x+lcd.getprintwidth(strgen(3,"0"))+x_offset,clock_y+FONT_HEIGHT+4+CLOCK_Y_OFFSET)
+		lcd.print(hr_str,clock_x+x_offset,clock_y+FONT_HEIGHT+4+CLOCK_Y_OFFSET)	
+		pre_mincount = wSysMincount
+	end if
+
+	if	wSysDaycount <> pre_daycount then
+		romfile.open(LCD_FIX_FONT)
+		lcd.setfont(romfile.offset)
+		lcd.texthorizontalspacing=1
+		lcd.backcolor = LCD_BACKCOLOR
+		lcd.forecolor = LCD_FORECOLOR	
+		if force_print = NO then date_time_str(date_str, hr_str, min_str, sec_str, wday_str,yes)
+		lcd.print(date_str+" "+ wday_str,clock_x,clock_y)
+		pre_daycount = wSysDaycount
+	end if
+	if ui_clock_force_print = YES then ui_clock_force_print = NO
+	if print_bar = YES then 
+		lcd_print_bar(85,id_y+14,20,5,device_get_mem_usage)
+		print_bar = NO
+	end if
+end sub
+
+'=============================================================
+public sub ui_clock_timer_proc
+'This is timer process for the ui_clock module
+	dim s as string
+	ui_clock_display(ui_clock_force_print)
+	if ui_clock_id_timer > 2 then
+		select case current_event
+		case EVENT_IN:
+			s = CLOCK_IN
+		case EVENT_OUT:
+			s = CLOCK_OUT
+		case EVENT_TEMPIN:
+			s = CLOCK_TEMP_IN
+		case EVENT_TEMPOUT:
+			s = CLOCK_TEMP_OUT
+		end select
+		lcd_clear(21,id_y-4,lcd.width-42,17)
+		lcd_print_msg(s, clock_x, id_y-3, clock_width, 14,no)
+		ui_clock_id_timer = 0
+	end if	
+	if ui_clock_id_timer <> 0 then
+		ui_clock_id_timer = ui_clock_id_timer + 1
+	end if
+end sub
+
+'============================================================= 
+public sub ui_clock_card_read(sID as string(20))
+'print the id on the LCD, if sID string is empty, print "READY"
+	dim s as string(ID_LEN)
+	dim w as word
+	ui_clock_id_timer = 0
+	romfile.open(LCD_STD_FONT)
+	lcd.setfont(romfile.offset)
+	lcd.texthorizontalspacing=1
+	if sID = "" then sID = "no name"
+
+	lcd.forecolor = LCD_FORECOLOR
+	lcd_clear(21, id_y,lcd.width-42,FONT_HEIGHT+1)
+	lcd.textalignment = PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER
+	w = lcd.getprintwidth(sID)
+	if w > clock_width then
+		lcd.printaligned(sID, clock_x,id_y,clock_width-8,8)
+		lcd.printaligned("...",clock_x+clock_width-6,id_y,8,8)
+	else
+		lcd.printaligned(sID, clock_x,id_y,clock_width,8)
+	end if
+	ui_clock_id_timer = 1
+	'calculating the percentage of used file disk space	
+	print_bar = YES
+end sub
+
+'============================================================= 
+public sub ui_clock_key_proc(key_event as pl_kp_event_codes, key_code as byte)
+'The keypad event process for the ui_clock module
+	dim s as string(4)
+	dim ss as string(15)
+	dim temp_etype as event_type
+
+	if param_b1=0 and key_code=keycodeF1 then exit sub
+	if param_b2=0 and key_code=keycodeF2 then exit sub
+	if param_b3=0 and key_code=keycodeF3 then exit sub
+	if param_b4=0 and key_code=keycodeF4 then exit sub
+	
+	temp_etype = current_event	
+	select case key_event
+		case PL_KP_EVENT_PRESSED:
+		print_clock_button("",no,yes)
+		select case key_code
+		case keycodeF1:
+			beep.divider = 20000
+			beep.play("B-",PL_BEEP_CANINT)
+			key_led_pressed(key_code)
+			current_event = EVENT_IN
+			s = "1000"
+			ss = CLOCK_IN
+		case keycodeF2:
+			beep.divider = 20000
+			beep.play("B-B-*",PL_BEEP_CANINT)
+			key_led_pressed(key_code)
+			current_event = EVENT_OUT
+			s = "0100"
+			ss = CLOCK_OUT
+		case keycodeF3:
+			beep.divider = 25000
+			beep.play("B-",PL_BEEP_CANINT)
+			key_led_pressed(key_code)
+			current_event = EVENT_TEMPIN
+			s = "0010"
+			ss = CLOCK_TEMP_IN
+		case keycodeF4
+			beep.divider = 25000
+			beep.play("B-B-*",PL_BEEP_CANINT)
+			key_led_pressed(key_code)
+			current_event = EVENT_TEMPOUT
+			s = "0001"
+			ss = CLOCK_TEMP_OUT
+		end select
+		print_clock_button(s,no,no)
+	if current_event <> temp_etype then
+		lcd_clear(21,id_y-4,lcd.width-42,17)
+		lcd_print_msg(ss, clock_x, id_y-3, clock_width, 14,no)
+	end if
+	case PL_KP_EVENT_RELEASED:
+	end select
+end sub

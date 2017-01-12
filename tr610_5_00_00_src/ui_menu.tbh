@@ -1,0 +1,39 @@
+'=============================================================
+'		UI_MENU.TBS
+'=============================================================
+
+CONST MENU_MAX_LVL = 5
+CONST MENU_MAX_ITEM_PER_LVL = 10
+CONST BMP_CANCEL_XOFFSET = 69
+CONST BMP_ENTER_XOFFSET = 86
+CONST BMP_UP_XOFFSET = 103
+CONST BMP_DOWN_XOFFSET = 120
+CONST LCD_MENU_TOUT =0
+
+enum ui_menu_results
+	MENU_RESULT_OK
+	MENU_RESULT_TIMEOUT
+end enum
+
+declare function ui_menu(
+	x_coord as word,
+	y_coord as word,
+	width as word,
+	height as word,
+	byref menu_states as string(MENU_MAX_LVL),
+	byref menu_descriptor_file as string(20),
+	ver_spacing as byte,
+	access_level as byte, 
+	timeout as byte
+	) as ui_menu_results
+
+enum menu_input_type
+	MENU_INPUT_BOX
+	MENU_LIST_BOX
+	MENU_SLIDE_BOX
+	MENU_MSG_BOX
+	MENU_TBL_BOX
+	MENU_IDLE
+end enum
+
+declare ui_menu_desc_file as string(20)		'file name of the menu item description

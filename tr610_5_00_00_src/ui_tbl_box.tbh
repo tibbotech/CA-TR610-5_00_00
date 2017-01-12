@@ -1,0 +1,33 @@
+
+enum ui_tbl_box_results
+	TBL_BOX_OK
+	TBL_BOX_NOT_FOUND
+	TBL_BOX_DISK_ERROR
+end enum
+
+enum ui_tbl_box_states
+	TBL_BOX_STATE_EMPTY
+	TBL_BOX_STATE_ADD
+	TBL_BOX_STATE_DEL
+	TBL_BOX_STATE_NORMAL
+	TBL_BOX_STATE_EXIT
+	TBL_BOX_STATE_EDIT
+	TBL_BOX_STATE_MODIFY_EDIT
+	TBL_BOX_STATE_MODIFY_ADD
+	TBL_BOX_STATE_STORE_EDIT
+	TBL_BOX_STATE_STORE_ADD
+	TBL_BOX_STATE_SHOW_OPTION
+end enum
+
+type item_data_type
+	FieldName as string(10)
+	FieldType as string(1)
+	DisplayData as string
+	FieldValue as string(40)
+end type
+
+
+declare function ui_tbl_box(x_coord as byte, y_coord as byte, width as byte, height as byte, item_data as string(60)) as ui_tbl_box_results
+
+
+

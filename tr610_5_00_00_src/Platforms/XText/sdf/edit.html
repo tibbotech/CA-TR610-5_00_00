@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+
+<HEAD>
+	<base href="<?%BaseDir?>"/>
+</HEAD>
+	
+<BODY>
+<table border="0" id = "auto_size"><tr><td>
+
+ID <br>
+<input type="text" ID="edit_I" value="<?%external.Context.I?>"/> <br>
+
+Description <br>
+<input type="text" ID="edit_D" value="<?%external.Context.D?>"/> <br>
+
+Type <br>
+<select ID="edit_T"> 
+
+<?
+var Types = external.XTextEx("sdftype.xtxt");
+if (!Types)
+?>
+	<option value="GROUP">Group</option>
+	<option value="INT">Integer</option>
+	<option value="DWORD">Dword</option>
+	<option value="LONG">Long</option>
+	<option value="WORD">Word</option>
+	<option value="SHORT">Short</option>
+	<option value="BYTE">Byte</option>
+	<option value="CHAR">Char</option>
+	<option value="STRING">String</option>
+	<option value="BINARY">Binary</option>
+<?
+else for (var i = 0; i < Types.length; i++)
+{
+	var Type = Types[i];
+?>
+	<option value="<?%Type.Name?>"> <?%Type.Description?></option>
+<?}?>
+
+</select> 
+<br>
+
+Control <br>
+<select ID="edit_C"> 
+	<option value="NULL">None</option>
+	<option value="STATIC">Static</option>
+	<option value="EDIT">Edit</option>
+	<option value="IPCTRL">Ip Control</option>
+	<option value="ETHERNETCTRL">Ethernet Control</option>
+</select> 
+<br>
+
+<script>
+document.getElementById("edit_T").value = external.Context.T;
+document.getElementById("edit_C").value = external.Context.C;
+</script>
+
+
+<? 
+
+if (external.Context.Options) 
+{ 
+?>
+
+<table border="1" id = "my_table">
+<? 
+for (i = 0; i < external.Context.Options.length; i++) 
+{
+	var Option = external.Context.Options[i]; 
+?>
+
+<tr onmousedown = "Select(this)" ondblclick = "Edit(this)">
+<td> <?%Option.Name?> </td>
+<td> <?%Option.Value?> </td>
+</tr>
+
+<?}?>
+
+</table>
+
+<?}?>
+
+Status Expression <br>
+<input type="text" ID="edit_S" value="<?%external.Context.S?>"/> <br>
+
+<hr>
+
+<script>
+
+function OnOK()
+{
+	external.Context.I = document.getElementById("edit_I").value;
+	external.Context.D = document.getElementById("edit_D").value;
+	external.Context.T = document.getElementById("edit_T").value;
+	external.Context.C = document.getElementById("edit_C").value;
+	external.EndDialog(1);
+}
+
+</script>
+
+<button width = "100" onclick="OnOK()">OK</button> &nbsp;
+<button width = "100" onclick="external.EndDialog(2)">Cancel</button> &nbsp;
+
+</td></tr></table>
+</BODY>
+
+</HTML>

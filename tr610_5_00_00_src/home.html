@@ -1,0 +1,21 @@
+<?
+	include "global.tbh"
+	declare sub html_login
+	html_login
+
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD W3 HTML//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+
+</HEAD>
+
+	<frameset cols='300,100%' frameborder='NO' border='0' bordercolor='#000000'>
+		<frame src='leftpane.html' name = 'panel'  scrolling='AUTO' noresize frameborder='NO' bordercolor='#000000'>
+		<frame src='general.html?session=<?sock_setsend(login_data)?>' name = 'showframe'  scrolling='AUTO' noresize frameborder='NO' bordercolor='#000000'>
+	</frameset>
+</HTML>
+
+

@@ -1,0 +1,32 @@
+<?
+	include "global.tbh"
+	dim flag as ok_ng
+
+?>
+
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<?device_html_sync?>
+<link rel="stylesheet" type="text/css" href="tables.css" />
+<script type="text/javascript">
+function IndexPage()
+  {
+  window.top.location.replace("Index.html")
+  }
+
+</script>
+
+</HEAD>
+
+<body <?flag = html_login_verify(yes)?>>
+<? 
+	if flag = NG then goto finish
+	device_html_sync_state
+?>
+</body>
+<?	device_html_proc_cmd
+	finish:
+?>
+</html>

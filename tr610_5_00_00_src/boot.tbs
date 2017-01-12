@@ -1,0 +1,215 @@
+include "global.tbh"
+
+declare function fd_check() as ok_ng
+declare function check_one_file(byref filename as string) as ok_ng
+
+'----------------------------------------------------------------------------
+public sub boot()
+	dim s as string(16)
+	dim i as byte
+	
+	'----- SETTING -----
+	stg_init_status=stg_start()
+	if stg_init_status=EN_STG_STATUS_OK then
+		stg_init_status=stg_check_all(s)
+	end if
+	
+	'----- FDisk and Table -----
+	tbl_init_status=tbl_start()
+	if tbl_init_status=EN_TBL_STATUS_OK then 
+		if fd_check()<>OK then
+			tbl_init_status=EN_TBL_STATUS_FAILURE
+		end if
+	end if
+	
+	'----- SETUP LCD AND RELATED STUFF -----
+	stg_sg("MM",0,s,EN_STG_GET)
+	param_mm=val(s)
+	lcd_init(param_mm)
+	device_lcd_print_logo()
+	
+	'----- SETUP KEYBOARD -----
+	key_init()
+	key_rotate(param_mm)
+
+	'----- Card Reader -----
+	reader_init()	
+	
+	'----- SETUP BUZZER -----
+	io.num=PL_IO_NUM_45_CO
+	io.enabled=YES
+	
+	'----- RELAY -----
+	io.num = RELAY_IO1
+	io.enabled = YES
+	io.num = RELAY_IO2
+	io.enabled = YES	
+		
+	'----- DHCP ------
+	
+	stg_sg("DH",0,s,EN_STG_GET)
+	param_dh=val(s)
+	
+	'----- DS Manager -----
+	net_cmd_init()
+
+	'----- AGGREGATE -----
+	stg_sg("AR",0,s,EN_STG_GET)
+	param_ar=val(s)	
+	if param_ar=1 then
+		agg_init()
+	end if
+	
+	stg_sg("CT",0,s,EN_STG_GET)
+	param_ct=val(s)*120	
+	
+	'----- SNTP -----
+	stg_sg("TZ",0,s,EN_STG_GET)
+	param_tz=val(s)
+	if param_ar=0 then
+		stg_sg("TF",0,s,EN_STG_GET)
+		param_tf=val(s)
+	else
+		param_tf=0
+	end if
+
+	stg_sg("DS",0,s,EN_STG_GET)
+	param_ds=val(s)
+
+	SOCK_SNTP=sock_get("SNT")
+	sntp_init()
+
+	'----- HTML -----
+	
+	SOCK_HTTP=sock_get("HTP")
+	for i=0 to NUM_HTTP_SOCKETS-2
+		sock_get("HTP")
+	next i
+	html_init()
+	html_session_init()
+	html_tables_init()
+
+	'-------- screenshot -----------------
+	sock.urlsubstitutes = "bmpfile.bmp,logfile.log,wl_download.log"
+
+	'----- MISC -----
+	stg_sg("ON",0,param_on,EN_STG_GET)
+	stg_sg("DN",0,param_dn,EN_STG_GET)
+	
+	stg_sg("B1",0,s,EN_STG_GET)
+	param_b1=val(s)
+	stg_sg("B2",0,s,EN_STG_GET)
+	param_b2=val(s)
+	stg_sg("B3",0,s,EN_STG_GET)
+	param_b3=val(s)
+	stg_sg("B4",0,s,EN_STG_GET)
+	param_b4=val(s)
+	stg_sg("AB",0,s,EN_STG_GET)
+	param_ab=val(s)
+	stg_sg("IL",0,s,EN_STG_GET)
+	param_il=val(s)
+	stg_sg("IS",0,s,EN_STG_GET)
+	param_is=val(s)
+	
+	if param_b1<>0 then 
+		current_event=EVENT_IN
+	else
+		if param_b2<>0 then
+			current_event=EVENT_OUT
+		else
+			if param_b3<>0 then
+				current_event=EVENT_TEMPIN
+			else
+				if param_b4<>0 then
+					current_event=EVENT_TEMPOUT
+				else
+					current_event=EVENT_IN
+				end if
+			end if
+		end if
+	end if
+	if param_b1=0 and param_b2=0 and param_b3=0 and param_b4=0 then
+		reader_blocked=YES
+	else
+		reader_blocked=NO
+	end if
+	load_auto_button_action()
+	init_x_flags()
+	stg_sg("IF",0,s,EN_STG_GET)
+	init_flag=val(s)
+	on_kp_event_dest=ON_KP_EVENT_DEST_NONE
+	on_sys_timer_event_dest=ON_SYS_TIMER_EVENT_DEST_NONE
+	html_reboot_flag = NO
+	sys_reboot_flag=NO	
+	force_refresh_screen=NO
+	dhcp_no_link_timer=10
+	auto_event_timer=0
+	
+	stg_sg("FV",0,FIRMWARE_VERSION,EN_STG_SET)
+end sub
+
+'----------------------------------------------------------------------------
+function fd_check() as ok_ng
+	dim s as string(32)
+	dim f,x as byte
+
+	fd_check=NG
+	for f=0 to fd.maxopenedfiles-1
+		filenum_release(f)
+	next f
+	
+	fd.filenum=fd.maxopenedfiles-1
+	s=""
+	fd.resetdirpointer
+	if fd.getnumfiles>0 then	
+		for f=0 to fd.getnumfiles-1
+			s=fd.getnextdirmember
+			
+			'<<<<<<<<<<<<<<<<<<<<<<<<<
+			x=instr(1,s," ",1)
+			if x>0 then
+				s=left(s,x-1)
+			end if
+			'<<<<<<<<<<<<<<<<<<<<<<<<<
+			
+			if fd.laststatus<>PL_FD_STATUS_OK then goto finish
+			if s<>AGG_TBL_TEMP then
+				if check_one_file(s)=NG then goto finish
+			end if
+		next f
+	end if
+	
+	fd_check=OK
+finish:
+	for f=0 to fd.maxopenedfiles-1
+		filenum_release(f)
+	next f
+end function
+
+'------------------------------------------------------------------------------
+function check_one_file(byref filename as string) as ok_ng
+	dim f,i,num_sectors as word
+	dim fd_result as pl_fd_status_codes
+	
+	check_one_file=NG
+	
+	fd.filenum=filenum_open("BOOT",filename,fd_result)
+	if fd_result<>PL_FD_STATUS_OK then exit function
+	
+	num_sectors=fd.filesize/256
+	if (fd.filesize mod 256) then
+		num_sectors=num_sectors+1
+	end if
+	if num_sectors=0 then num_sectors=1 'file always has at least one sector allocated
+	
+	if fd.setpointer(256)<>PL_FD_STATUS_OK then exit function 'full check, so we go through all the sectors
+
+	for f=0 to num_sectors-1 'when we come here we always have at least 1 sector to check/copy
+		fd.buffernum=0
+		if fd.getsector(fd.sector)<>PL_FD_STATUS_OK then exit function
+		if fd.checksum(PL_FD_CSUM_MODE_VERIFY,i)<>OK then exit function	
+		fd.setpointer(fd.pointer+256)
+	next f
+	check_one_file=OK
+	filenum_release(fd.filenum)
+end function

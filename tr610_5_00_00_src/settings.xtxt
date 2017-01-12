@@ -1,0 +1,34 @@
+>>FV	E	S	1	0	17	I	^
+>>TC	E	S	1	5	5	A	00:00
+>>IF	E	B	1	0	1	A	1
+>>ON	E	S	1	0	32	I	admin
+>>DN	E	S	1	0	32	I	^
+>>DH	E	B	1	0	1	A	1
+>>IP	E	D	1	4	4	A	1.0.0.1
+>>GI	E	D	1	4	4	A	127.0.0.1
+>>NM	E	D	1	4	4	A	0.0.0.0
+>>DI	E	D	1	4	4	A	1.0.0.1
+>>DP	E	W	1	0	65535	A	6480
+>>AR	E	B	1	0	1	A	0
+>>PW	E	S	1	0	6	A	^
+>>TS	E	D	1	4	4	A	192.43.244.18
+>>TF	E	B	1	0	1	A	0
+>>MC	E	S	1	0	12	A	^
+>>WL	E	B	1	0	1	A	0
+>>CT	E	B	1	0	99	A	5
+>>TZ	E	B	1	0	34	A	0
+>>B1	E	B	1	0	2	A	1
+>>B2	E	B	1	0	2	A	1
+>>B3	E	B	1	0	2	A	1
+>>B4	E	B	1	0	2	A	1
+>>MM	E	B	1	0	1	A	0
+>>AB	E	B	1	0	1	A	0
+>>DS	E	B	1	0	1	A	0
+>>IL	E	B	1	1	12	A	8
+>>IS	E	B	1	1	12	A	1
+#define STG_DESCRIPTOR_FILE "settings.xtxt"
+#define STG_TIMESTAMP 1
+#define STG_MAX_NUM_SETTINGS 28
+#define STG_RAM_ARRAY_SIZE 0
+#define STG_MAX_SETTING_NAME_LEN 2
+#define STG_MAX_SETTING_VALUE_LEN 32

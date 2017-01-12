@@ -1,0 +1,5 @@
+'=============================================================
+'		UI_MSG_BOX.TBS
+'=============================================================
+declare function ui_msg_box(byref msg as string(60),x as byte, y as byte, w as byte, h as byte,align as pl_lcd_text_alignment, byref keycode_str as string(20), bolder as no_yes, timeout as byte) as byte
+ 

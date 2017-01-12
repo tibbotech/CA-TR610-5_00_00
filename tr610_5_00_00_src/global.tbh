@@ -1,0 +1,146 @@
+
+
+'DEFINES-------------------------------------------------------------
+
+
+#define FILENUM_MAX_FILENAME_LEN 6
+#define UTF8_CONVERT 0
+#define WLN_AVAILABLE 0
+#if UTF8_CONVERT
+	#define LCD_FIX_FONT "TIBBO5X7PL(V).bin"
+	#define LCD_STD_FONT "TIBBO5X7PL(VP).bin"
+#endif
+
+#if UTF8_CONVERT
+	const FIRMWARE_VERSION="{tr610.5.00.00pl}"
+#else
+	const FIRMWARE_VERSION="{tr610.5.00.00}"
+#endif
+const RELAY_IO1 = 47
+const RELAY_IO2 = 48
+const RELAY_TIMER = 5
+const DEVICE_SNTP_RETRY=3
+const TAB=9
+const LF=10
+const CR=13
+const STX=2
+const ETX=3
+const NULL=0
+const COMMA=44
+const ID_LEN=12
+
+'INCLUDES------------------------------------------------------------
+includepp "settings.xtxt"
+includepp "tables.xtxt"
+includepp "aggregate.xtxt"
+
+include "msg.tbh"
+include "settings\trunk\settings.tbh"
+include "tables\trunk\tables.tbh"
+include "dhcp\trunk\dhcp.tbh"
+include "sock\trunk\sock.tbh"
+include "filenum\trunk\filenum.tbh"
+include "time\trunk\time.tbh"
+include "lcd_common.tbh"
+include "aggregate\trunk\aggregate.tbh"
+include "keypad.tbh"
+include "device.tbh"
+include "login_control.tbh"
+include "cap_lcd.tbh"
+include "flags.tbh"
+include "net_cmd.tbh"
+include "reader.tbh"
+include "sntp.tbh"
+include "html_common.tbh"
+include "html_session.tbh"
+include "html_settings.tbh"
+include "html_tables.tbh"
+include "ui_clock.tbh"
+include "ui_msg_box.tbh"
+include "ui_input_box.tbh"
+include "ui_list_box.tbh"
+include "ui_tbl_box.tbh"
+include "ui_menu.tbh"
+
+'DECLARATIONS--------------------------------------------------------
+
+enum on_kp_event_destinations			
+	ON_KP_EVENT_DEST_NONE
+	ON_KP_EVENT_DEST_INPUT_BOX
+	ON_KP_EVENT_DEST_LIST_BOX
+	ON_KP_EVENT_DEST_MSG_BOX
+	ON_KP_EVENT_DEST_MENU
+	ON_KP_EVENT_DEST_CLOCK
+	ON_KP_EVENT_DEST_TBL
+	ON_KP_EVENT_MC_SET
+end enum
+
+enum on_sys_timer_event_destinations
+	ON_SYS_TIMER_EVENT_DEST_NONE
+	ON_SYS_TIMER_EVENT_DEST_INPUT_BOX
+	ON_SYS_TIMER_EVENT_DEST_LIST_BOX
+	ON_SYS_TIMER_EVENT_DEST_MSG_BOX
+	ON_SYS_TIMER_EVENT_DEST_MENU
+	ON_SYS_TIMER_EVENT_DEST_TBL
+	ON_SYS_TIMER_EVENT_DEST_CLOCK
+end enum
+
+enum on_reader_event_destinations
+	ON_READER_EVENT_DEST_NONE
+	ON_READER_EVENT_DEST_INIT
+	ON_READER_EVENT_DEST_CLOCK
+end enum
+
+enum event_type 
+	EVENT_IN,
+	EVENT_OUT,
+	EVENT_TEMPIN,
+	EVENT_TEMPOUT
+end enum
+
+declare sub boot()
+
+declare stg_init_status as en_stg_status_codes
+declare tbl_init_status as en_tbl_status_codes
+
+declare param_on as string(32)	'onwer name
+declare param_dn as string(32)	 'domain name
+declare param_tz as byte
+declare param_ds as byte
+declare param_mm as byte
+declare param_dh as byte
+declare param_ar as byte
+declare param_ct as word
+declare param_tf as byte
+declare param_b1 as byte
+declare param_b2 as byte
+declare param_b3 as byte
+declare param_b4 as byte
+declare param_ab as byte
+declare param_il as byte
+declare param_is as byte
+
+declare index_page_socknum as byte
+declare init_flag as byte
+declare device_tbl_result as en_tbl_status_codes
+declare sync_retry as byte
+declare sync_success as no_yes
+declare on_kp_event_dest as on_kp_event_destinations
+declare on_sys_timer_event_dest as on_sys_timer_event_destinations
+declare on_reader_event_dest as on_reader_event_destinations
+declare current_event as event_type
+declare html_reboot_flag as no_yes
+declare dhcp_flag as byte
+declare relay_counter1 as byte
+declare relay_counter2 as byte
+declare SOCK_HTTP as byte
+declare SOCK_SNTP as byte
+declare sys_reboot_flag as no_yes
+declare force_refresh_screen as no_yes
+declare dhcp_no_link_timer as byte
+declare auto_button_time(20) as word
+declare auto_button_action(20) as byte
+declare auto_button_item as byte
+declare auto_button_timer as byte
+declare reader_blocked as no_yes
+declare auto_event_timer as byte

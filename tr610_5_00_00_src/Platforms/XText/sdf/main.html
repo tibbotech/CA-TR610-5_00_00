@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+
+<HEAD>
+	<base href="<?%BaseDir?>"/>
+</HEAD>
+	
+<BODY>
+
+<script>
+
+external.NotificationFilter = "xtext_2.xtxt/xtext_3.xtxt"
+
+function external::OnModified(FileName)
+{
+	var s = new String;	
+	s = external.FileName + "::OnModified(" + FileName + ")";
+	alert(s);
+}
+
+var SelectedRow;
+
+function Select(Row)
+{
+	if (SelectedRow)
+		SelectedRow.bgColor = 0xffffff;
+	
+	Row.bgColor = 0xff9080;
+	SelectedRow = Row;
+}
+
+function Delete(Row)
+{	
+	if (!Row)
+		return;
+		
+	if (Row == SelectedRow)
+		SelectedRow = null;
+	
+	external.XText.splice(Row.rowIndex, 1);
+	external.SetModified(true);
+
+	document.getElementById('my_table').deleteRow(Row.rowIndex);	
+}
+
+function Edit(Row)
+{	
+	if (!Row)
+		return;
+
+	var Obj = external.XText[Row.rowIndex];
+	var Result = external.ModalDialog("edit.html", "Edit SDF Item", Obj);
+	if (Result != 1)
+		return;	
+		
+	Row.cells(0).innerHTML = Obj.I;	
+	Row.cells(1).innerHTML = Obj.D;	
+	Row.cells(2).innerHTML = Obj.T;
+	Row.cells(3).innerHTML = Obj.C;
+	
+	external.SetModified(true);
+}
+
+function Add()
+{	
+	var Obj = new Object;
+
+	Obj.I = "?";
+	Obj.D = "?";
+	Obj.T = "?";
+
+	var Result = external.ModalDialog("edit.html", "Add New SDF Item", Obj);
+	if (Result != 1)
+		return;	
+
+	external.XText.push(Obj);
+	external.SetModified(true);
+
+	var Row = document.getElementById("my_table").insertRow();
+	
+	Row.onmousedown = function() { Select(Row); };
+	Row.ondblclick = function() { Edit(Row); };
+	Row.insertCell(0).innerHTML = Obj.I;
+	Row.insertCell(1).innerHTML = Obj.D;
+	Row.insertCell(2).innerHTML = Obj.T;
+	Row.insertCell(3).innerHTML = Obj.C;
+	
+	Select(Row);
+}
+
+</script>
+
+<table border="1" id = "my_table">
+
+<?
+for (i = 0; i < external.XText.length; i++) 
+{ 
+	var Obj = external.XText[i];
+?>
+
+<tr onmousedown = "Select(this)" ondblclick = "Edit(this)">
+
+<td> <?%Obj.I?> </td>
+<td> <?%Obj.D?> </td>
+<td> <?%Obj.T?> </td>
+<td> <?%Obj.C?> </td>
+
+</tr>
+
+<?}?>
+
+</table>
+
+<br>
+<button onclick = "Add()">Add</button>&nbsp;
+<button onclick = "Edit(SelectedRow)">Edit</button>&nbsp;
+<button onclick = "Delete(SelectedRow)">Delete</button>&nbsp;
+
+</BODY>
+
+</HTML>

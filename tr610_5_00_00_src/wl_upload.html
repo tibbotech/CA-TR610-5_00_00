@@ -1,0 +1,46 @@
+<?include "global.tbh"
+dim flag as ok_ng
+getting_postdata = NO
+tbl_upload_result = 0
+?>
+<html>
+<HEAD>
+<META HTTP-EQUIV="Expires" CONTENT="Tue, 01 Jan 1980 1:00:00 GMT">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<link rel="stylesheet" type="text/css" href="tables.css" />
+<script type="text/javascript">
+function IndexPage()
+{
+  window.top.location.replace("Index.html")
+}
+
+</script>
+</HEAD>
+<body <?flag = html_login_verify(yes)?>>
+<?if flag = NG then goto finish?>
+<br><br><br>
+	<table width='600' align=center border="0" cellspacing="0" cellpadding="0" >
+		<tr><td>
+		<table width='600' align=center border="1">
+			<tr><th><b>Uploading whitelist</b></th></tr>
+		</table>
+		</td></tr>
+		<tr><td>
+		<table width='600' align=center border="1">
+			<form action="upload.html" method="post" enctype="multipart/form-data">
+			<input type="hidden" name="session" value="<?sock_setsend(login_data)?>">
+			<input type="hidden" name="upload_mode" value="DL_CSV">
+			<tr><td><table align=center border="0">
+				<tr><td><table width='220' align=center border="0"><tr><td><input type="file" name="TBL_WL"></td></tr></table></td></tr>
+				<tr><td><table width='50' align=center border="0"><tr><td><input type="submit" value=" Send "></td></tr></table></td></tr>
+			</table></td></tr>
+			</form>
+		</table>
+		</td></tr>
+		<tr><td>
+		<font color='red'>Please do not operate the device while uploading files.</font>
+		</td></tr>
+	</table>	
+<?finish:?>
+</body>
+</html>

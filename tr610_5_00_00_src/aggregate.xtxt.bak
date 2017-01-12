@@ -1,0 +1,61 @@
+==info	root	<R=<TR610 / EM1000-3_29_02><timerecorder>>
+==variables	root	<R=<version><<<version><S>> <M=1> <X=1>><Version><1><0><^><remote|General><^>>
+~~<R=<date><<<date><D>> <M=1> <X=1>><Date/Time><1><0><^><remote|General><^>>
+~~<R=<modtime><<<variable><S>> <<modtime><D><F=N>>><Modification time><1><0><^><^><^>>
+>>TZ	S	<R=<TZ><<<TZ><I><V=<L=0 34>><S=<-12:00=0><-11:00=1><-10:00=2><-9:00=3><-8:00=4><-7:00=5><-6:00=6><-5:00=7><-4:30=8><-4:00=9><-3:30=10><-3:00=11><-2:00=12><-1:00=13><+0:00=14><+1:00=15><+2:00=16><+3:00=17><+3:30=18><+4:00=19><+4:30=20><+5:00=21><+5:30=22><+5:45=23><+6:00=24><+6:30=25><+7:00=26><+8:00=27><+9:00=28><+9:30=29><+10:00=30><+11:00=31><+12:00=32><+13:00=33>>><M=1><X=1>><Timezone><1><1><^><remote|Time Server><^>>
+>>ON	S	<R=<ON><<<ON><S><V=<L=0 32>>><M=1><X=1>><ON><1><1><^><remote|General><^>>
+>>DN	S	<R=<DN><<<DN><S><V=<L=0 32>>><M=1><X=1>><DN><1><1><^><remote|General><^>>
+>>PW	S	<R=<PW><<<PW><S><V=<L=0 6>>><M=1><X=1>><Password><1><1><^><remote|General><^>>
+>>MM	S	<R=<MM><<<MM><I><V=<L=0 1>><S=<Wall=0><Desktop=1>>><M=1><X=1>><Mount><1><1><^><remote|General><^>>
+>>DH	S	<R=<DH><<<DH><I><V=<L=0 1>><S=<Disabled=0><Enabled=1>>><M=1><X=1>><DHCP><1><1><^><remote|Network><^>>
+>>IP	S	<R=<IP><<<IP><S>><M=1><X=1>><IP Adress><1><1><^><remote|Network><^>>
+>>GI	S	<R=<GI><<<GI><S>><M=1><X=1>><Gateway><1><1><^><remote|Network><^>>
+>>NM	S	<R=<NM><<<NM><S>><M=1><X=1>><Netmask><1><1><^><remote|Network><^>>
+>>DI	S	<R=<DI><<<DI><S>><M=1><X=1>><Destination IP><1><1><^><remote|Network><^>>
+>>DP	S	<R=<DP><<<DP><L><V=<L=0 65535>>><M=1><X=1>><Destination Port><1><1><^><remote|Network><^>>
+>>AR	S	<R=<AR><<<AR><I><V=<L=0 1>><S=<Disabled=0><Enabled=1>>><M=1><X=1>><Auto Register><1><1><^><remote|Network><^>>
+>>CT	S	<R=<CT><<<CT><I><V=<L=0 99>>><M=1><X=1>><Connection Timeout><1><1><^><remote|Network><^>>
+>>TF	S	<R=<TF><<<TF><I><V=<L=0 1>><S=<Disabled=0><Enabled=1>>><M=1><X=1>><Time Server Connection><1><1><^><remote|Time Server><^>>
+>>TS	S	<R=<TS><<<TS><S>><M=1><X=1>><Time Server IP><1><1><^><remote|Time Server><^>>
+>>WL	S	<R=<WL><<<WL><I><V=<L=0 1>><S=<Disabled=0><Enabled=1>>><M=1><X=1>><Enable/Disable><1><1><^><remote|White List><^>>
+>>B1	S	<R=<B1><<<B1><I><V=<L=0 2>><S=<Disabled=0><Enabled with relay=1><Enabled without relay=2>>><M=1><X=1>><Clock In><1><1><^><remote|Buttons><^>>
+>>B2	S	<R=<B2><<<B2><I><V=<L=0 2>><S=<Disabled=0><Enabled with relay=1><Enabled without relay=2>>><M=1><X=1>><Clock Out><1><1><^><remote|Buttons><^>>
+>>B3	S	<R=<B3><<<B3><I><V=<L=0 2>><S=<Disabled=0><Enabled with relay=1><Enabled without relay=2>>><M=1><X=1>><Temporary In><1><1><^><remote|Buttons><^>>
+>>B4	S	<R=<B4><<<B4><I><V=<L=0 2>><S=<Disabled=0><Enabled with relay=1><Enabled without relay=2>>><M=1><X=1>><Temporary Out><1><1><^><remote|Buttons><^>>
+>>AB	S	<R=<AB><<<AB><I><V=<L=0 1>><S=<Disabled=0><Enabled=1>>><M=1><X=1>><Activate Button Schedule><1><1><^><remote|Buttons><^>>
+>>TBL_WL	T	<R=<TBL_WL><<<ID><S><A=xxxxxxxx><V=<L=1 12>>><<NAME><S><V=<L=0 40>>><M=0><X=255>><White List Table><1><1><^><remote|White List><^>>
+>>AU_BUT	T	<R=<AU_BUT><<<time><S><A=00:00><V=<L=5 5>>><<act><I><A=0><V=<L=0 15>><S=<Switch C. IN=0><Switch C. OUT=1><Switch T. IN=2><Switch T. OUT=3><C. IN(Dis.)=4><C. IN(rly)=5><C. IN(no rly)=6><C. OUT(Dis.)=7><C. OUT(rly)=8><C. OUT(no rly)=9><T. IN(Dis.)=10><T. IN(rly)=11><T. IN(no rly)=12><T. OUT(Dis.)=13><T. OUT(rly)=14><T. OUT(no rly)=15>>><M=0><X=20>><Button Schedule><1><1><^><remote|Buttons><^>>
+==functions	root	<R=<hash><<<context><S>><<variable><S>><M=1><X=1>><<<hash><I>><M=1><X=1>><Table Hash><^><^>>
+~~<R=<finishTable><<<context><S>><<variable><S>><M=1><X=1>><<<hash><I>><M=1><X=1>><Finish Table><^><^>>
+~~<R=<startTable><<<context><S>><<variable><S>><M=1><X=1>><<M=0><X=0>><Start Table><^><^>>
+~~<R=<addRecord><<<context><S>><<variable><S>><<record><S>><M=1><X=1>><<M=0><X=0>><Add Record><^><^>>
+~~<R=<removeRecord><<<context><S>><<variable><S>><<id><S>><M=1><X=1>><<M=0><X=0>><Remove Record><^><^>>
+~~<R=<updateRecord><<<context><S>><<variable><S>><<record><S>><M=1><X=1>><<M=0><X=0>><Update Record><^><^>>
+~~<R=<putRecords><<<record><S>><M=1><X=1>><<M=0><X=0>><Put Record><^><^>>
+~~<R=<login><<<challenge><S>><M=1><X=1>><<<owner><S>><<name><S>><<response><S>><M=1><X=1>><Login><^><^>>
+~~<R=<register><<M=0><X=0>><<<password><S>><M=1><X=1>><Auto Register><^><^>>
+~~<R=<synchronized><<M=0><X=0>><<M=0><X=0>><Synchronized><^><^>>
+>>buzz	<R=<buzz><<M=0><X=0>><<<status><S>><M=0><X=0>><Buzz><^><remote>>
+>>init	<R=<init><<M=0><X=0>><<M=0><X=0>><Initialize><This operation will reboot the device><remote>>
+>>reboot	<R=<reboot><<M=0><X=0>><<M=0><X=0>><Reboot><^><remote>>
+>>Z	<R=<Z><<M=0><X=0>><<<status><S>><M=1><X=1>><Open Door><^><remote>>
+>>J	<R=<J><<M=0><X=0>><<<status><S>><M=1><X=1>><Clear Log><^><remote>>
+>>M	<R=<M><<M=0><X=0>><<M=0><X=0>><Format Disk><This operation will reboot the device><remote>>
+==events	root
+>>CR	S2	<R=<CR><<<id><S><D=Card ID>><<type><I><S=<IN=0><OUT=1><TEMP_IN=2><TEMP_OUT=3>><D=Event Type>><<date><D><D=Date>><M=1><X=1>><Card Read><^><2><remote>>
+#define TBL_TIMESTAMP 1
+#define STG_TIMESTAMP 1
+#define AGG_DESCRIPTOR_FILE "aggregate.xtxt"
+#define AGG_TABLE_CONTROL 1
+#define AGG_SETTING_CONTROL 1
+#define AGG_WAIT_TIME 15
+#define AGG_DEBUG_PRINT 0
+#define AGG_LOGIN_CONTROL 1
+#define AGG_MAX_NUM_ENTITIES 4
+#define AGG_MAX_CONTEXT_NAME_LEN 4
+#define AGG_MAX_NUM_ITEMS 30
+#define AGG_MAX_ITEM_NAME_LEN 12
+#define AGG_MAX_NUM_EVENT_FIELDS 3
+#define AGG_MAX_EVENT_FIELD_VAL_LEN 23
+@@STG_RefPath=settings.xtxt
+@@TBL_RefPath=tables.xtxt

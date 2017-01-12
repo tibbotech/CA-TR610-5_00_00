@@ -1,0 +1,556 @@
+'*************************************************************************************************************************
+'  
+'	
+'
+'*************************************************************************************************************************
+include "global.tbh"
+
+declare sub ui_tbl_box_display(x as byte, y as byte, w as byte, h as byte, s as string)
+declare sub ui_tbl_box_key_proc(key_event as pl_kp_event_codes,byref key_code as byte, byref cusor as byte, byref states as ui_tbl_box_states,byref repaint as no_yes)
+declare sub ui_tbl_box_cursor_display(x as byte, y as byte, index as byte)
+
+dim tbl_pos_x, tbl_pos_y as byte
+dim tbl_field_num as byte
+
+public function ui_tbl_box(
+	x_coord as byte,		'x coordination
+	y_coord as byte,		'y coordination
+	width as byte,
+	height as byte,
+	item_data as string(60)
+	) as ui_tbl_box_results
+	
+	dim temp1,temp2,temp3 as string
+	dim record_display_str as string
+	dim record_num,romfile_pos1, romfile_pos2,pos1,pos2 as word
+	dim i as byte
+	dim state as ui_tbl_box_states
+	dim cusor as byte
+	dim tbl_box_item_data as item_data_type(3)
+	dim ib_chr_range as byte
+	dim input_len as byte
+	dim is_secret as no_yes
+	dim ib_result as ui_input_box_results
+	dim lb_result as ui_list_box_results
+	dim repaint as no_yes
+	dim tbl_name as string(TBL_MAX_TABLE_NAME_LEN)
+	dim tbl_result as en_tbl_status_codes
+	dim kp_event as pl_kp_event_codes
+	dim kp_code as byte
+	dim total_rec_num, index_rec_num, temp_rec_num as word
+	dim list_return as string(5)
+	dim tbl as tbl_type
+	
+	key_led_reset()
+	kp.enabled = NO
+	kp.genkpevent = NO
+	kp.enabled = YES
+	kp_code = 255
+	
+	'kp_flag = YES
+	repaint = YES
+	state = TBL_BOX_STATE_NORMAL
+	record_num = 1
+	cusor = 0
+	tbl_pos_x = x_coord
+	tbl_pos_y = y_coord
+	tbl_field_num = 0
+	
+	romfile_pos1=val(item_data)
+	romfile.open(ui_menu_desc_file)
+	romfile_pos2=romfile.find(romfile_pos1,chr(TAB)+"^",1)
+	
+	if romfile_pos2=0 then romfile_pos2=romfile.size
+	'romfile.pointer=romfile_pos1
+	'record_display_str=romfile.getdata(romfile_pos2-romfile_pos1)
+	
+	
+	'pos1 = instr(1,record_display_str,chr(COMMA),2)
+	'pos2 = instr(1,record_display_str,chr(COMMA),3)
+	
+	pos1=romfile.find(romfile_pos1,chr(COMMA),2)
+	pos2=romfile.find(romfile_pos1,chr(COMMA),3)
+		
+	'tbl_name = mid(record_display_str,pos1+1, pos2-pos1-1)  	'temp1 = Table name
+	romfile.pointer=pos1+1
+	tbl_name=romfile.getdata(pos2-pos1-1)	
+	
+	tbl_select(tbl_name,tbl_name)
+	romfile.open(ui_menu_desc_file)	
+	
+	for i = 0 to tbl_get_num_fields(tbl_name)-1
+		
+		'temp2 = mid(record_display_str,pos2+1,1)				'temp2 = FieldType
+		romfile.pointer=pos2+1
+		temp2 = romfile.getdata(1)
+		
+		
+		tbl_box_item_data(i).FieldType = temp2
+
+		'pos2 = instr(pos2+1,record_display_str,chr(COMMA),1)
+		'pos1 = instr(pos2+1,record_display_str,chr(COMMA),1)
+		pos2=romfile.find(pos2+1,chr(COMMA),1)
+		pos1=romfile.find(pos2+1,chr(COMMA),1)
+		
+		'tbl_box_item_data(i).FieldName = mid(record_display_str,pos2+1,pos1-pos2-1)
+		romfile.pointer=pos2+1
+		tbl_box_item_data(i).FieldName=romfile.getdata(pos1-pos2-1)
+		
+		if tbl_box_item_data(i).FieldName <> "" then tbl_field_num = tbl_field_num+1
+		select case temp2
+		case "I":
+			'pos2 = instr(pos1+1,record_display_str,chr(COMMA),4)
+			pos2=romfile.find(pos1+1,chr(COMMA),4)
+		case "L":
+			'pos2 = instr(pos1+1,record_display_str,chr(COMMA),1)
+			pos2=romfile.find(pos1+1,chr(COMMA),1)
+		end select
+		'if pos2 = 0 then pos2 = len(record_display_str)+1
+		if pos2=0 or pos2>romfile_pos2 then pos2=romfile_pos2
+		
+		'tbl_box_item_data(i).DisplayData = mid(record_display_str,pos1+1,pos2-pos1-1)
+		romfile.pointer=pos1+1
+		tbl_box_item_data(i).DisplayData=romfile.getdata(pos2-pos1-1)
+		
+		'if pos2 = len(record_display_str)+1 then exit for
+		if pos2=romfile_pos2 then exit for
+	next i
+	
+	tbl_record_find(EN_TBL_RECORD_ACTIVE,"","",record_num,EN_TBL_SEARCH_DOWN,"")
+	if record_num = 0 then
+		state = TBL_BOX_STATE_EMPTY
+	else
+		state = TBL_BOX_STATE_NORMAL
+	end if
+	tbl_get_num_records(total_rec_num,NO)
+	index_rec_num = 1
+wait:  
+	'doevents
+
+	if kp.overflow = YES then kp.enabled = YES
+	if kp.getkey(kp_event,kp_code)=OK then
+		ui_tbl_box_key_proc(kp_event,kp_code, cusor,state,repaint)
+	end if
+	if repaint = NO then goto wait
+states:
+	select case state
+	case TBL_BOX_STATE_EMPTY:
+		lcd_display_button(BMP_NONE,BMP_NONE,BMP_NO_XOFFSET,BMP_YES_XOFFSET,"0000",yes,no)
+		record_display_str = "The table is empty, would you like to add a new record?(Y/N)"
+		kp_code = ui_msg_box(record_display_str,tbl_pos_x-3,tbl_pos_y-6,width+6,height+6,PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER,chr(keycodeF3)+chr(keycodeF4),yes,20)
+		lcd_clear(tbl_pos_x-3,tbl_pos_y-3,width+6,height+6)
+
+		select case kp_code
+		case keycodeF3,255:
+			state = TBL_BOX_STATE_EXIT
+			goto states
+		case keycodeF4:
+			state = TBL_BOX_STATE_ADD
+			goto states
+		end select	
+	case TBL_BOX_STATE_ADD,TBL_BOX_STATE_EDIT :
+
+		record_display_str = ""
+		for i = 0 to tbl_get_num_fields(tbl_name)-1
+			if tbl_box_item_data(i).FieldName <> "" then
+				temp1 = tbl_box_item_data(i).FieldValue
+				temp2 = tbl_box_item_data(i).FieldName
+				temp1 = left(temp1,12-len(temp2))
+				device_mod_display_str(tbl_name,temp2,temp1)
+				record_display_str = record_display_str+temp2+":"+temp1+"`"
+			end if
+		next i
+		lcd_clear(1,1,lcd.width,lcd.height)
+		lcd_display_button(BMP_DOWN_XOFFSET,BMP_ENTER_XOFFSET,BMP_CANCEL_XOFFSET,BMP_STORE_XOFFSET,"0000",yes,no)
+		ui_tbl_box_display(tbl_pos_x+6,tbl_pos_y,width-6,height,record_display_str)
+		ui_tbl_box_cursor_display(tbl_pos_x+1, tbl_pos_y, cusor)
+		if state = TBL_BOX_STATE_EDIT then lcd_print_header("Edit Record")
+		if state = TBL_BOX_STATE_ADD then lcd_print_header("Add Record")	
+		lcd.line(17,lcd.height-12,lcd.width-19,lcd.height-12)
+
+		repaint = NO
+	case TBL_BOX_STATE_MODIFY_EDIT,TBL_BOX_STATE_MODIFY_ADD:
+		select case tbl_box_item_data(cusor).FieldType
+		case "I":
+			lcd_clear(tbl_pos_x,tbl_pos_y,width,height)
+			lcd_display_button(BMP_MOVE_XOFFSET,BMP_ROLL_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+			lcd_print_header(tbl_box_item_data(cusor).FieldName)
+			lcd.line(17,lcd.height-12,lcd.width-19,lcd.height-12)
+			pos1 = instr(1,tbl_box_item_data(cusor).DisplayData, chr(COMMA),1)
+			temp1 = left(tbl_box_item_data(cusor).DisplayData,pos1-1)
+			pos2 = instr(1,tbl_box_item_data(cusor).DisplayData, chr(COMMA),2)
+			ib_chr_range = asc(mid(tbl_box_item_data(cusor).DisplayData,pos1+1,pos2-pos1-1))
+			pos1= instr(1,tbl_box_item_data(cusor).DisplayData, chr(COMMA),3)
+			temp2 = mid(tbl_box_item_data(cusor).DisplayData,pos2+1,pos1-pos2-1)
+			input_len = val(temp2)
+			pos2 = instr(1,tbl_box_item_data(cusor).DisplayData, chr(COMMA),4)
+			temp2 = mid(tbl_box_item_data(cusor).DisplayData,pos1+1,pos2-pos1-1)
+			if temp2 = "N" then 
+				is_secret = NO
+			else
+				is_secret = YES
+			end if
+			temp2 = tbl_box_item_data(cusor).FieldValue
+			#if UTF8_CONVERT			
+				utf8_to_win1250(temp2)
+			#endif
+			temp3=tbl_box_item_data(cusor).FieldName
+			device_mod_display_str(tbl_name,temp3,temp2)
+			ib_result = ui_input_box(temp1,temp2,ib_chr_range,19,54,90,is_secret,NO,1,20,input_len)
+			device_mod_display_str(tbl_name,temp3,temp2)
+			#if UTF8_CONVERT			
+				win1250_to_utf8(temp2)
+			#endif			
+			select case ib_result
+			case INPUT_BOX_RESULT_OK:
+				tbl_box_item_data(cusor).FieldValue = temp2
+				if state = TBL_BOX_STATE_MODIFY_ADD then state = TBL_BOX_STATE_ADD
+				if state = TBL_BOX_STATE_MODIFY_EDIT then state = TBL_BOX_STATE_EDIT
+				goto states
+			case INPUT_BOX_RESULT_CANCEL,INPUT_BOX_RESULT_TIMEOUT:
+				if state = TBL_BOX_STATE_MODIFY_ADD then state = TBL_BOX_STATE_ADD
+				if state = TBL_BOX_STATE_MODIFY_EDIT then state = TBL_BOX_STATE_EDIT
+				goto states
+			case INPUT_BOX_RESULT_FAIL:
+			end select
+		case "L":
+			temp1 = tbl_box_item_data(cusor).DisplayData
+			temp2 = tbl_box_item_data(cusor).FieldValue
+			lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+			lb_result = ui_list_box(19, 15, 1, lcd.width-38, lcd.height-25, temp1, temp2, 20)
+				select case lb_result
+				case LIST_BOX_RESULT_OK:
+					tbl_box_item_data(cusor).FieldValue = temp2
+					if state = TBL_BOX_STATE_MODIFY_ADD then state = TBL_BOX_STATE_ADD
+					if state = TBL_BOX_STATE_MODIFY_EDIT then state = TBL_BOX_STATE_EDIT
+					goto states
+				case LIST_BOX_RESULT_CANCEL,LIST_BOX_RESULT_TIMEOUT:
+					if state = TBL_BOX_STATE_MODIFY_ADD then state = TBL_BOX_STATE_ADD
+					if state = TBL_BOX_STATE_MODIFY_EDIT then state = TBL_BOX_STATE_EDIT
+					goto states
+				case INPUT_BOX_RESULT_FAIL:
+					device_pause(2)
+					sys.reboot
+				end select		
+		end select
+	case TBL_BOX_STATE_DEL:
+	case TBL_BOX_STATE_NORMAL:
+		if total_rec_num = 0 then 
+			state = TBL_BOX_STATE_EXIT 
+			goto states
+		end if
+		record_display_str = ""
+		temp_rec_num = record_num
+		select case kp_code		
+		case keycodeF1:
+			if index_rec_num > 1 then
+				record_num = record_num -1
+				tbl_record_find(EN_TBL_RECORD_ACTIVE,"","",record_num,EN_TBL_SEARCH_UP,PL_FD_FIND_EQUAL)
+			else
+				repaint=NO
+				goto wait
+			end if
+		case keycodeF2:
+			if index_rec_num < total_rec_num then
+				record_num = record_num +1
+				tbl_record_find(EN_TBL_RECORD_ACTIVE,"","",record_num,EN_TBL_SEARCH_DOWN,PL_FD_FIND_EQUAL)		
+			else
+				repaint = NO
+				goto wait
+			end if
+		case keycodeF3:
+			tbl_record_find(EN_TBL_RECORD_ACTIVE,"","",record_num,EN_TBL_SEARCH_DOWN,PL_FD_FIND_EQUAL)
+			kp_code = 255
+		case keycodeF4:
+			tbl_record_find(EN_TBL_RECORD_ACTIVE,"","",record_num,EN_TBL_SEARCH_DOWN,PL_FD_FIND_EQUAL)
+			kp_code = 255
+		case else
+			record_num = 1
+			index_rec_num = 1
+			tbl_record_find(EN_TBL_RECORD_ACTIVE,"","",record_num,EN_TBL_SEARCH_DOWN,PL_FD_FIND_EQUAL)
+		end select
+
+		if record_num > 0 then 
+			if kp_code =keycodeF1 then index_rec_num = index_rec_num-1
+			if kp_code =keycodeF2 then index_rec_num = index_rec_num+1
+			tbl_record_sg(record_num,EN_TBL_GET)
+			for i = 0 to tbl_get_num_fields(tbl_name)-1
+				if tbl_box_item_data(i).FieldName <> "" then
+					tbl_field_sg(tbl_box_item_data(i).FieldName,temp1,EN_TBL_GET)				
+					temp2 = tbl_box_item_data(i).FieldName
+					temp1 = left(temp1,12-len(temp2))
+					device_mod_display_str(tbl_name,temp2,temp1)
+					record_display_str = record_display_str+temp2+":"+temp1+"`"
+				end if
+			next i
+			temp1 = str(index_rec_num)+"/"+str(total_rec_num)
+			if kp_code = 255 then
+				lcd_clear(tbl_pos_x,0,width,lcd.height)
+				lcd_display_button(BMP_LEFT_XOFFSET,BMP_RIGHT_XOFFSET,BMP_CANCEL_XOFFSET,BMP_MORE_XOFFSET,"0000",yes,no)	
+				ui_tbl_box_display(tbl_pos_x+6,tbl_pos_y,width-6,height,record_display_str)
+				lcd_print_header("Select Record")
+				lcd.line(17,lcd.height-12,lcd.width-19,lcd.height-12)
+				lcd.print(temp1,25,lcd.height-9)
+			else
+				lcd_clear(tbl_pos_x,tbl_pos_y,width,height+12)
+				ui_tbl_box_display(tbl_pos_x+6,tbl_pos_y,width-6,height,record_display_str)
+				lcd.line(17,lcd.height-12,lcd.width-19,lcd.height-12)
+				lcd.print(temp1,25,lcd.height-9)
+			end if
+		else
+			record_num = temp_rec_num
+		end if
+		repaint = NO
+	case TBL_BOX_STATE_EXIT:
+		ui_tbl_box = TBL_BOX_OK
+		exit function
+	case TBL_BOX_STATE_STORE_ADD,TBL_BOX_STATE_STORE_EDIT:
+		tbl_select(tbl_name,tbl_name)
+		for i = 0 to tbl_get_num_fields(tbl_name)-1
+			
+			tbl_result = tbl_field_sg(tbl_box_item_data(i).FieldName,tbl_box_item_data(i).FieldValue,EN_TBL_SET) 
+			if tbl_result <> EN_TBL_STATUS_OK then goto fail_to_add
+		next i
+		if tbl_result = EN_TBL_STATUS_OK then
+			if state = TBL_BOX_STATE_STORE_ADD then
+				temp1=""
+				tbl_result = tbl_record_add(temp1)
+				if tbl_result <> EN_TBL_STATUS_OK then goto fail_to_add
+				state = TBL_BOX_STATE_NORMAL
+				kp_code = 255
+				total_rec_num = total_rec_num+1
+			else
+				tbl_result = tbl_record_edit(record_num)
+				if tbl_result <> EN_TBL_STATUS_OK then goto fail_to_add
+				state = TBL_BOX_STATE_NORMAL
+			end if
+		end if
+fail_to_add:		
+		if tbl_result <> EN_TBL_STATUS_OK then
+			select case tbl_result
+			case EN_TBL_STATUS_FULL: temp1 = "Table is full!"
+			case EN_TBL_STATUS_INVALID: temp1 = "Invaild Field Value!"
+			case EN_TBL_STATUS_KEY_VIOLATION: temp1 = "Key Violation!"
+			case else temp1 = "System Error, Firmware might be corrupted!"
+			end select
+			ui_msg_box(temp1,tbl_pos_x-3,tbl_pos_y-6,width+6,height+6,PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER,chr(key_code1)+chr(key_code2)+chr(keycodeF3)+chr(keycodeF4),yes,20)
+			if state = TBL_BOX_STATE_STORE_EDIT then state = TBL_BOX_STATE_EDIT
+			if state = TBL_BOX_STATE_STORE_ADD then state = TBL_BOX_STATE_ADD		
+		end if
+		goto states
+	
+	case TBL_BOX_STATE_SHOW_OPTION:
+		list_return = "1"
+		lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+		lb_result = ui_list_box(tbl_pos_x+3,tbl_pos_y-3,1,width-6,height+6,"1-Add Rec.;2-Delete Rec.;3-Edit Rec.;4-Go top",list_return,20)
+		select case lb_result
+		case LIST_BOX_RESULT_FAIL:
+		case LIST_BOX_RESULT_CANCEL, LIST_BOX_RESULT_TIMEOUT:
+			state = TBL_BOX_STATE_NORMAL
+			kp_code = keycodeF3
+			goto states
+		case LIST_BOX_RESULT_OK:
+			select case list_return
+				case "1":
+					for i = 0 to tbl_get_num_fields(tbl_name)-1
+						if tbl_box_item_data(i).FieldName <> "" then tbl_box_item_data(i).FieldValue = ""
+					next i
+					state = TBL_BOX_STATE_ADD
+					cusor = 0
+					goto states
+				case "2":
+					lcd_display_button(BMP_NONE,BMP_NONE,BMP_NO_XOFFSET,BMP_YES_XOFFSET,"0000",yes,no)
+					record_display_str = "Would you like to delete the Record?(Y/N)"
+					kp_code = ui_msg_box(record_display_str,tbl_pos_x-3,tbl_pos_y-3,width+6,height+9,PL_LCD_TEXT_ALIGNMENT_MIDDLE_CENTER,chr(keycodeF3)+chr(keycodeF4),yes,20)
+					
+					if kp_code = keycodeF4 then
+						tbl_record_delete(record_num)
+						total_rec_num = total_rec_num-1
+						if total_rec_num = 0 then
+							record_num = 0
+							index_rec_num = 0
+							state = TBL_BOX_STATE_EMPTY
+						else
+							record_num = 1
+							index_rec_num = 1
+							kp_code =255
+							state = TBL_BOX_STATE_NORMAL
+						end if
+						goto states
+					else
+						state = TBL_BOX_STATE_NORMAL
+						kp_code = 255
+						goto states
+					end if
+				case "3":
+					tbl_record_sg(record_num,EN_TBL_GET)
+					for i = 0 to tbl_get_num_fields(tbl_name)-1
+						tbl_field_sg(tbl_box_item_data(i).FieldName,tbl_box_item_data(i).FieldValue,EN_TBL_GET)
+					next i
+					state = TBL_BOX_STATE_EDIT
+					cusor = 0
+					goto states
+				case "4":
+					record_num = 1
+					index_rec_num =1
+					kp_code = 255 
+					state = TBL_BOX_STATE_NORMAL
+					goto states
+				case "5":
+					dim fld as tbl_field_type
+					temp1 = ""
+					
+					for i = 0 to tbl_get_num_fields(tbl_name)-1
+						tbl_get_field_info(tbl_name,i,fld)
+						if fld.key = yes then 
+							temp1 = fld.field_name
+							exit for
+						end if
+					next i
+					if temp1 <> "" then
+						for i = 0 to tbl_get_num_fields(tbl_name)-1
+							if temp1 = tbl_box_item_data(i).FieldName then
+								exit for
+							end if
+						next i
+						
+						select case tbl_box_item_data(i).FieldType
+						case "I":
+							lcd_clear(tbl_pos_x,tbl_pos_y,width,height)
+							lcd_display_button(BMP_MOVE_XOFFSET,BMP_ROLL_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+							lcd_print_header(tbl_box_item_data(i).FieldName)
+							lcd.line(17,lcd.height-12,lcd.width-19,lcd.height-12)
+							pos1 = instr(1,tbl_box_item_data(i).DisplayData, chr(COMMA),1)
+							temp1 = left(tbl_box_item_data(i).DisplayData,pos1-1)
+							pos2 = instr(1,tbl_box_item_data(i).DisplayData, chr(COMMA),2)
+							ib_chr_range = asc(mid(tbl_box_item_data(i).DisplayData,pos1+1,pos2-pos1-1))
+							pos1= instr(1,tbl_box_item_data(i).DisplayData, chr(COMMA),3)
+							temp2 = mid(tbl_box_item_data(i).DisplayData,pos2+1,pos1-pos2-1)
+							input_len = val(temp2)
+							pos2 = instr(1,tbl_box_item_data(i).DisplayData, chr(COMMA),4)
+							temp2 = mid(tbl_box_item_data(i).DisplayData,pos1+1,pos2-pos1-1)
+							if temp2 = "N" then 
+								is_secret = NO
+							else
+								is_secret = YES
+							end if
+							temp2 = tbl_box_item_data(i).FieldValue
+							#if UTF8_CONVERT
+								utf8_to_win1250(temp2)
+							#endif
+							temp3=tbl_box_item_data(cusor).FieldName
+							device_mod_display_str(tbl_name,temp3,temp2)							
+							ib_result = ui_input_box(temp1,temp2,ib_chr_range,19,54,90,is_secret,NO,1,20,input_len)
+							device_mod_display_str(tbl_name,temp3,temp2)
+							#if UTF8_CONVERT			
+								win1250_to_utf8(temp2)
+							#endif							
+							select case ib_result
+							case INPUT_BOX_RESULT_OK:
+							
+								state = TBL_BOX_STATE_NORMAL
+								goto states
+							case INPUT_BOX_RESULT_CANCEL,INPUT_BOX_RESULT_TIMEOUT:
+								state = TBL_BOX_STATE_NORMAL
+								goto states
+							case INPUT_BOX_RESULT_FAIL:
+							end select
+						case "L":
+							temp1 = tbl_box_item_data(i).DisplayData
+							lcd_display_button(BMP_UP_XOFFSET,BMP_DOWN_XOFFSET,BMP_CANCEL_XOFFSET,BMP_ENTER_XOFFSET,"0000",yes,no)
+							lb_result = ui_list_box(19, 15, 1, lcd.width-38, lcd.height-25, temp1, temp2, 20)
+							select case lb_result 
+							case LIST_BOX_RESULT_OK:
+							
+								state = TBL_BOX_STATE_NORMAL
+								goto states
+							case LIST_BOX_RESULT_CANCEL,LIST_BOX_RESULT_TIMEOUT:
+								state = TBL_BOX_STATE_NORMAL
+								goto states
+							case LIST_BOX_RESULT_FAIL:
+							end select						
+						end select						
+					end if
+			end select
+		end select
+	end select
+goto wait
+end function
+
+'=============================================================
+sub ui_tbl_box_display(x as byte, y as byte, w as byte, h as byte, s as string)
+'print the ui_menu_string, which contains the menu items.
+
+	#if UTF8_CONVERT			
+		utf8_to_win1250(s)
+	#endif
+	lcd.textalignment = PL_LCD_TEXT_ALIGNMENT_TOP_LEFT
+	romfile.open(LCD_STD_FONT)
+	lcd.setfont(romfile.offset)	
+	lcd.textverticalspacing=1
+	lcd.texthorizontalspacing = 1
+	lcd.printaligned(s, x+2, y, w-4, h)
+end sub
+
+'=============================================================
+sub ui_tbl_box_key_proc(key_event as pl_kp_event_codes, byref key_code as byte, byref cusor as byte, byref state as ui_tbl_box_states, byref repaint as no_yes)
+'The keypad process for ui_msg_box module
+	device_key_proc(key_event, key_code)
+	select case key_event
+	case PL_KP_EVENT_PRESSED
+	
+		select case state
+		case TBL_BOX_STATE_NORMAL:
+			select case key_code
+			case keycodeF1:
+				state = TBL_BOX_STATE_NORMAL
+				repaint = YES
+			case keycodeF2:
+				state = TBL_BOX_STATE_NORMAL
+				repaint = YES
+			case keycodeF3:
+				state = TBL_BOX_STATE_EXIT
+				repaint = YES
+			case keycodeF4:
+				state = TBL_BOX_STATE_SHOW_OPTION
+				repaint = YES
+			end select		
+
+		case TBL_BOX_STATE_ADD,TBL_BOX_STATE_EDIT:
+			select case key_code
+			case keycodeF1:
+				if cusor < tbl_field_num-1 then 
+					cusor = cusor+1
+					ui_tbl_box_cursor_display(tbl_pos_x+1, tbl_pos_y, cusor)
+					repaint = NO
+				else 
+					cusor = 0
+					ui_tbl_box_cursor_display(tbl_pos_x+1, tbl_pos_y, cusor)
+					repaint = NO
+				end if
+			case keycodeF2:
+				if state = TBL_BOX_STATE_ADD then state = TBL_BOX_STATE_MODIFY_ADD
+				if state = TBL_BOX_STATE_EDIT then state = TBL_BOX_STATE_MODIFY_EDIT
+				
+				repaint = YES
+			case keycodeF3:
+				state = TBL_BOX_STATE_NORMAL
+				repaint = YES
+			case keycodeF4:
+				if state = TBL_BOX_STATE_ADD then state = TBL_BOX_STATE_STORE_ADD
+				if state = TBL_BOX_STATE_EDIT then state = TBL_BOX_STATE_STORE_EDIT
+				repaint = YES
+			end select
+		end select
+	end select
+end sub
+
+'=============================================================	
+sub ui_tbl_box_cursor_display(x as byte, y as byte, index as byte)
+'print the cursor at correct posistion (according to menu_display_index) on the LCD
+	
+	romfile.open(SMALL_ICON_FILE)
+	lcd_clear(x, y, 7, 35)
+	y = y+index * (FONT_HEIGHT+1)+(FONT_HEIGHT/2)-3
+	lcd.bmp(romfile.offset,x,y,19,0,5,8)
+end sub

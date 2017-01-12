@@ -1,0 +1,27 @@
+
+'=============================================================
+'		UI_INPUT_BOX.TBS
+'=============================================================
+
+CONST IB_MAX_LEN = 32
+
+enum ui_input_box_results 
+	INPUT_BOX_RESULT_OK,
+	INPUT_BOX_RESULT_CANCEL,
+	INPUT_BOX_RESULT_TIMEOUT,
+	INPUT_BOX_RESULT_FAIL
+end enum
+
+declare function ui_input_box(
+	byref mask_str as string(IB_MAX_LEN),
+	byref edit_str as string(IB_MAX_LEN),
+	char_range as byte,
+	x_coord as word,
+	y_coord as word,
+	width as byte,
+	secret_mode as no_yes,
+	insert_mode as no_yes,
+	byref initial_pos as byte,
+	timeout as byte,
+	input_length as byte
+) as ui_input_box_results  

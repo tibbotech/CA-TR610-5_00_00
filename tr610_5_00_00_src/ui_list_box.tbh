@@ -1,0 +1,24 @@
+'=============================================================
+'		UI_LIST_BOX.TBS
+'=============================================================
+
+
+enum ui_list_box_results
+	LIST_BOX_RESULT_OK,
+	LIST_BOX_RESULT_CANCEL,
+	LIST_BOX_RESULT_TIMEOUT,
+	LIST_BOX_RESULT_FAIL
+end enum
+
+
+declare function ui_list_box(
+	x_coord as word,
+	y_coord as word,
+	ver_spacing as byte,
+	list_width as word,	
+	list_height as word,
+	byref listbox_data as string,
+	byref listbox_state as string(10),
+	timeout as byte
+) as ui_list_box_results
+
